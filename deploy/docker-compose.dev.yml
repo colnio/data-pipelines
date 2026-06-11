@@ -1,0 +1,30 @@
+# Local development stack for the lab-data system. Host ports bind to
+# 127.0.0.1 only — do not publish 0.0.0.0 on shared/CI hosts. Default
+# credentials are for local dev only; use strong secrets anywhere shared.
+name: labdata
+
+networks:
+  labdata_internal:
+    driver: bridge
+
+services:
+  postgres:
+    image: postgres:16
+    networks: [labdata_internal]
+    environment:
+      # Dev-only defaults — change before exposing beyond localhost.
+      POSTGRES_USER: lab
+      POSTGRES_PASSWORD: lab
+      POSTGRES_DB: lab
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

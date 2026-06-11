@@ -1,0 +1,93 @@
+// Command server is the lab-data API entrypoint. It loads configuration, opens
+// the Postgres pool, runs goose migrations behind an advisory lock, wires the
+// chi+huma server plus domain modules, and starts listening.
+//
+// Subagents must NOT edit this file: domain modules expose Register/NewService
+// and the orchestrator wires them here (per AGENTS.md, avoids merge conflicts
+// during parallel work).
+package main
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/joho/godotenv"
+
+	"github.com/colnio/data-pipelines/internal/config"
+	"github.com/colnio/data-pipelines/internal/db"
+	"github.com/colnio/data-pipelines/internal/platform"
+)
+
+func main() {
+	if err := run(); err != nil {
+		slog.Error("fatal", "err", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	_ = godotenv.Load() // .env is optional; real env wins.
+
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
+
+	cfg, err := config.Load()
+	if err != nil {
+		return err
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	pool, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	logger.Info("running migrations")
+	if err := db.Migrate(ctx, pool, cfg.DatabaseURL); err != nil {
+		return err
+	}
+
+	srv := platform.New(&platform.ServerDeps{
+		Logger:      logger,
+		WebOrigin:   cfg.WebOrigin,
+		Idempotency: platform.NewIdempotencyStore(pool),
+		Production:  cfg.IsProduction(),
+		RateLimiter: platform.NewRateLimiterFromPool(pool, 600),
+	})
+
+	// Domain module routes are registered here as tracks land, e.g.:
+	//   ingest.Register(srv.API, ingestSvc)
+	//   run.Register(srv.API, runSvc)
+	//   review.Register(srv.API, reviewSvc)
+
+	httpSrv := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           srv.Router,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	go func() {
+		logger.Info("listening", "addr", httpSrv.Addr, "env", cfg.Env)
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("server error", "err", err)
+			stop()
+		}
+	}()
+
+	<-ctx.Done()
+	logger.Info("shutting down")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	return httpSrv.Shutdown(shutdownCtx)
+}

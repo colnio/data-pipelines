@@ -1,0 +1,35 @@
+# Go
+/bin/
+*.test
+*.out
+coverage.*
+
+# Build artifacts
+/server
+/worker
+cmd/server/server
+cmd/worker/worker
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node / Vite
+node_modules/
+ui/dist/
+ui/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Local data / scratch
+/srv/
+/tmp-labdata/
+*.local
+.DS_Store
