@@ -33,6 +33,7 @@ type Worker struct {
 	q        *Queue
 	workerID string
 	handlers map[domain.JobType]Handler
+	types    []domain.JobType // the job types this worker claims (its handler keys)
 	opts     WorkerOptions
 	log      *slog.Logger
 }
@@ -52,12 +53,24 @@ func NewWorker(q *Queue, workerID string, handlers map[domain.JobType]Handler, o
 	if opts.ReclaimInterval <= 0 {
 		opts.ReclaimInterval = time.Minute
 	}
+	types := make([]domain.JobType, 0, len(handlers))
+	for t := range handlers {
+		types = append(types, t)
+	}
 	return &Worker{
 		q:        q,
 		workerID: workerID,
 		handlers: handlers,
+		types:    types,
 		opts:     opts,
 		log:      slog.Default(),
+	}
+}
+
+// SetLogger overrides the worker's logger (defaults to slog.Default()).
+func (w *Worker) SetLogger(l *slog.Logger) {
+	if l != nil {
+		w.log = l
 	}
 }
 
@@ -88,8 +101,9 @@ func (w *Worker) Run(ctx context.Context) error {
 		default:
 		}
 
-		// Attempt to claim a job.
-		job, err := w.q.Claim(ctx, w.workerID, w.opts.LockTTL)
+		// Attempt to claim a job — only of the types this worker handles, so
+		// it never steals another worker's job types (e.g. Python parse jobs).
+		job, err := w.q.ClaimTypes(ctx, w.workerID, w.opts.LockTTL, w.types)
 		if err != nil {
 			w.log.Error("jobs: claim error", "worker", w.workerID, "err", err)
 			// Back off a bit before retrying on transient DB errors.

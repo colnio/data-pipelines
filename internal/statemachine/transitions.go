@@ -22,15 +22,18 @@ var allowed = map[domain.RunState][]domain.RunState{
 	domain.StatePulling: {
 		domain.StateUnpacked,
 		domain.StateTransferFailed,
+		domain.StateUnsafeArchive, // safe-unpack rejects a malicious archive during the pull phase
 	},
 	domain.StateUnpacked: {
 		domain.StateVerified,
 		domain.StateUnsafeArchive,
 		domain.StateManifestMismatch,
+		domain.StatePulling, // re-drive: a job that died mid-unpack re-pulls cleanly
 	},
 	domain.StateVerified: {
 		domain.StatePromoted,
 		domain.StateManifestMismatch,
+		domain.StatePulling, // re-drive: a job that died before promote re-pulls cleanly
 	},
 
 	// Happy path: ingest pipeline

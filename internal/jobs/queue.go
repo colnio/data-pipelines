@@ -108,8 +108,16 @@ FROM jobs WHERE id = $1`
 
 // Claim atomically picks the highest-priority oldest queued job whose
 // available_at <= now(), marks it running, and returns it. Returns (nil, nil)
-// when no job is available.
+// when no job is available. It claims jobs of ANY type — use ClaimTypes when a
+// worker handles only a subset (e.g. a Go worker and a Python worker share the
+// queue and must not steal each other's job types).
 func (q *Queue) Claim(ctx context.Context, workerID string, lockTTL time.Duration) (*domain.Job, error) {
+	return q.ClaimTypes(ctx, workerID, lockTTL, nil)
+}
+
+// ClaimTypes is like Claim but, when jobTypes is non-empty, only claims jobs
+// whose job_type is in the list. A nil/empty list claims any type.
+func (q *Queue) ClaimTypes(ctx context.Context, workerID string, lockTTL time.Duration, jobTypes []domain.JobType) (*domain.Job, error) {
 	tx, err := q.pool.Begin(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("jobs: claim begin tx: %w", err)
@@ -119,12 +127,21 @@ func (q *Queue) Claim(ctx context.Context, workerID string, lockTTL time.Duratio
 	const pickSQL = `
 SELECT id FROM jobs
 WHERE state = 'queued' AND available_at <= now()
+  AND ($1::text[] IS NULL OR job_type = ANY($1::text[]))
 ORDER BY priority DESC, created_at ASC
 FOR UPDATE SKIP LOCKED
 LIMIT 1`
 
+	var typeFilter []string
+	if len(jobTypes) > 0 {
+		typeFilter = make([]string, len(jobTypes))
+		for i, t := range jobTypes {
+			typeFilter[i] = string(t)
+		}
+	}
+
 	var jobID int64
-	err = tx.QueryRow(ctx, pickSQL).Scan(&jobID)
+	err = tx.QueryRow(ctx, pickSQL, typeFilter).Scan(&jobID)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}

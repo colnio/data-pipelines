@@ -19,19 +19,23 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/colnio/data-pipelines/internal/agentauth"
 	"github.com/colnio/data-pipelines/internal/config"
 	"github.com/colnio/data-pipelines/internal/db"
+	"github.com/colnio/data-pipelines/internal/ingest"
+	"github.com/colnio/data-pipelines/internal/jobs"
 	"github.com/colnio/data-pipelines/internal/platform"
+	"github.com/colnio/data-pipelines/internal/run"
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := runServer(); err != nil {
 		slog.Error("fatal", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func runServer() error {
 	_ = godotenv.Load() // .env is optional; real env wins.
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
@@ -64,10 +68,15 @@ func run() error {
 		RateLimiter: platform.NewRateLimiterFromPool(pool, 600),
 	})
 
-	// Domain module routes are registered here as tracks land, e.g.:
-	//   ingest.Register(srv.API, ingestSvc)
-	//   run.Register(srv.API, runSvc)
-	//   review.Register(srv.API, reviewSvc)
+	// ── Domain modules ───────────────────────────────────────────────────────
+	runRepo := run.NewRepo(pool)
+	agentSvc := agentauth.NewService(pool)
+	queue := jobs.NewQueue(pool)
+	ingestSvc := ingest.NewService(pool, agentSvc, runRepo, queue, logger)
+
+	run.Register(srv.API, runRepo)
+	ingest.Register(srv.API, ingestSvc)
+	// Review/publish modules and human auth are registered here as they land.
 
 	httpSrv := &http.Server{
 		Addr:              ":" + cfg.Port,
