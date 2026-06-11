@@ -3,13 +3,17 @@
 // throwaway testdb, not mocks). Tests skip cleanly when Postgres is
 // unreachable so `go test ./...` still passes in environments without Docker.
 //
-// The target database name is taken from TEST_DATABASE_URL (default
-// `lab_test`). Parallel test runs in different packages should each set a
-// distinct TEST_DATABASE_URL so they never contend on migration ordering.
+// The target database name is taken from TEST_DATABASE_URL when set. When it is
+// NOT set, each test binary gets its OWN database (name derived from the test
+// binary path) so packages running in parallel under a plain `go test ./...`
+// never contend on the same tables. CI that pins one shared TEST_DATABASE_URL
+// should run `go test ./... -p 1`.
 package testsupport
 
 import (
 	"context"
+	"fmt"
+	"hash/fnv"
 	"os"
 	"sync"
 	"testing"
@@ -20,17 +24,19 @@ import (
 	"github.com/colnio/data-pipelines/internal/db"
 )
 
-const defaultTestDSN = "postgres://lab:lab@localhost:5432/lab_test?sslmode=disable"
 const adminDSN = "postgres://lab:lab@localhost:5432/lab?sslmode=disable"
 
 var migrateOnce sync.Once
 
-// DSN returns the test database DSN (TEST_DATABASE_URL or the local default).
+// DSN returns the test database DSN: TEST_DATABASE_URL when set, otherwise a
+// per-test-binary database so parallel packages stay isolated.
 func DSN() string {
 	if v := os.Getenv("TEST_DATABASE_URL"); v != "" {
 		return v
 	}
-	return defaultTestDSN
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(os.Args[0])) // distinct per test binary (per package)
+	return fmt.Sprintf("postgres://lab:lab@localhost:5432/labdata_test_%08x?sslmode=disable", h.Sum32())
 }
 
 // NewPool returns a pool against a freshly-migrated test database. The first

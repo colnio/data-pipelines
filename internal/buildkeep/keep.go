@@ -5,8 +5,8 @@
 package buildkeep
 
 import (
-	_ "github.com/klauspost/compress/zstd"   // internal/transfer archive decompression
-	_ "github.com/stretchr/testify/assert"   // module + worker tests
-	_ "github.com/stretchr/testify/require"  // module + worker tests
-	_ "golang.org/x/crypto/bcrypt"           // agent shared-key + human password hashing
+	_ "github.com/klauspost/compress/zstd"  // internal/transfer archive decompression
+	_ "github.com/stretchr/testify/assert"  // module + worker tests
+	_ "github.com/stretchr/testify/require" // module + worker tests
+	_ "golang.org/x/crypto/bcrypt"          // agent shared-key + human password hashing
 )

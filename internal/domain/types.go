@@ -9,21 +9,21 @@ import (
 // truth (sample/device/contact_config) is referenced by ID; the manifest hash
 // freezes the declared file set.
 type Run struct {
-	ID              string           `json:"id"`
-	ManifestHash    string           `json:"manifest_hash"`
-	AgentID         string           `json:"agent_id"`
-	MeasurementType string           `json:"measurement_type"`
+	ID               string           `json:"id"`
+	ManifestHash     string           `json:"manifest_hash"`
+	AgentID          string           `json:"agent_id"`
+	MeasurementType  string           `json:"measurement_type"`
 	CompletionSource CompletionSource `json:"completion_source"`
-	SampleID        *string          `json:"sample_id,omitempty"`
-	DeviceID        *string          `json:"device_id,omitempty"`
-	ContactConfigID *string          `json:"contact_config_id,omitempty"`
-	MeasPath        string           `json:"meas_path"`
-	OperatorComment string           `json:"operator_comment"`
-	State           RunState         `json:"state"`
-	DeclaredBy      string           `json:"declared_by"`
-	DeclaredAt      time.Time        `json:"declared_at"`
-	CreatedAt       time.Time        `json:"created_at"`
-	UpdatedAt       time.Time        `json:"updated_at"`
+	SampleID         *string          `json:"sample_id,omitempty"`
+	DeviceID         *string          `json:"device_id,omitempty"`
+	ContactConfigID  *string          `json:"contact_config_id,omitempty"`
+	MeasPath         string           `json:"meas_path"`
+	OperatorComment  string           `json:"operator_comment"`
+	State            RunState         `json:"state"`
+	DeclaredBy       string           `json:"declared_by"`
+	DeclaredAt       time.Time        `json:"declared_at"`
+	CreatedAt        time.Time        `json:"created_at"`
+	UpdatedAt        time.Time        `json:"updated_at"`
 }
 
 // RunFile mirrors run_files: one verified raw file belonging to a run.
@@ -61,12 +61,12 @@ type Job struct {
 // Agent mirrors the agents table: a measurement-PC agent the server trusts but
 // does not consider infallible (§4).
 type Agent struct {
-	ID          string    `json:"id"`
-	DisplayName string    `json:"display_name"`
-	KeyHash     string    `json:"-"` // argon2/bcrypt hash of the shared key; never serialized
-	Enabled     bool      `json:"enabled"`
+	ID          string     `json:"id"`
+	DisplayName string     `json:"display_name"`
+	KeyHash     string     `json:"-"` // argon2/bcrypt hash of the shared key; never serialized
+	Enabled     bool       `json:"enabled"`
 	LastSeenAt  *time.Time `json:"last_seen_at,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
+	CreatedAt   time.Time  `json:"created_at"`
 }
 
 // AgentAllowedRoot is one filesystem root an agent is permitted to expose. A

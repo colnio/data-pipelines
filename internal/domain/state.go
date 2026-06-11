@@ -78,17 +78,17 @@ const (
 type JobType string
 
 const (
-	JobPullRun             JobType = "pull_run"
-	JobVerifyRun           JobType = "verify_run"
-	JobPromoteRun          JobType = "promote_run"
-	JobParseRun            JobType = "parse_run"
-	JobValidateRun         JobType = "validate_run"
-	JobProcessRun          JobType = "process_run"
+	JobPullRun              JobType = "pull_run"
+	JobVerifyRun            JobType = "verify_run"
+	JobPromoteRun           JobType = "promote_run"
+	JobParseRun             JobType = "parse_run"
+	JobValidateRun          JobType = "validate_run"
+	JobProcessRun           JobType = "process_run"
 	JobCreateReviewArtifact JobType = "create_review_artifact"
-	JobSendNotification    JobType = "send_notification"
-	JobPublishRun          JobType = "publish_run"
-	JobReconcileAgent      JobType = "reconcile_agent"
-	JobBackupCheck         JobType = "backup_check"
+	JobSendNotification     JobType = "send_notification"
+	JobPublishRun           JobType = "publish_run"
+	JobReconcileAgent       JobType = "reconcile_agent"
+	JobBackupCheck          JobType = "backup_check"
 )
 
 // ActorType identifies who/what performed a state transition (§16).

@@ -34,7 +34,7 @@ type ServerDeps struct {
 	Production bool
 
 	// RateLimiter and AuthIPRateLimiter are optional; nil uses in-memory backends.
-	RateLimiter     *RateLimiter
+	RateLimiter       *RateLimiter
 	AuthIPRateLimiter *IPRateLimiter
 
 	// PerMinute is the default per-token rate limit when RateLimiter is nil.

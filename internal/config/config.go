@@ -55,9 +55,9 @@ type Config struct {
 	MaxArchiveBytes int64
 
 	// ── Notifications ──────────────────────────────────────────────────────
-	SMTPHost     string
-	SMTPPort     string
-	SMTPFrom     string
+	SMTPHost         string
+	SMTPPort         string
+	SMTPFrom         string
 	TelegramBotToken string
 
 	// LabTimezone is the wall-clock zone for digests/reconciliation schedules.
