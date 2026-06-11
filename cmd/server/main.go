@@ -20,11 +20,13 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/colnio/data-pipelines/internal/agentauth"
+	"github.com/colnio/data-pipelines/internal/auth"
 	"github.com/colnio/data-pipelines/internal/config"
 	"github.com/colnio/data-pipelines/internal/db"
 	"github.com/colnio/data-pipelines/internal/ingest"
 	"github.com/colnio/data-pipelines/internal/jobs"
 	"github.com/colnio/data-pipelines/internal/platform"
+	"github.com/colnio/data-pipelines/internal/review"
 	"github.com/colnio/data-pipelines/internal/run"
 )
 
@@ -60,9 +62,21 @@ func runServer() error {
 		return err
 	}
 
+	// Human auth (reviewers) — provides the platform Verifier and JWT endpoints.
+	authSvc, err := auth.NewService(pool, auth.Config{
+		JWTSigningKey:       cfg.JWTSigningKey,
+		AccessTokenTTL:      cfg.AccessTokenTTL,
+		AllowedEmailDomains: cfg.AllowedEmailDomains,
+		IsProduction:        cfg.IsProduction(),
+	}, logger)
+	if err != nil {
+		return err
+	}
+
 	srv := platform.New(&platform.ServerDeps{
 		Logger:      logger,
 		WebOrigin:   cfg.WebOrigin,
+		Verifier:    authSvc,
 		Idempotency: platform.NewIdempotencyStore(pool),
 		Production:  cfg.IsProduction(),
 		RateLimiter: platform.NewRateLimiterFromPool(pool, 600),
@@ -73,10 +87,12 @@ func runServer() error {
 	agentSvc := agentauth.NewService(pool)
 	queue := jobs.NewQueue(pool)
 	ingestSvc := ingest.NewService(pool, agentSvc, runRepo, queue, logger)
+	reviewSvc := review.NewService(pool, runRepo, queue, logger)
 
+	auth.Register(srv.API, authSvc)
 	run.Register(srv.API, runRepo)
 	ingest.Register(srv.API, ingestSvc)
-	// Review/publish modules and human auth are registered here as they land.
+	review.Register(srv.API, reviewSvc)
 
 	httpSrv := &http.Server{
 		Addr:              ":" + cfg.Port,

@@ -1,0 +1,11 @@
+# DB driver — psycopg v3 with binary extension (C-accelerated; pure-Python
+# fallback pg8000 would be used if no wheel is available for this interpreter).
+# psycopg[binary] installed cleanly on Python 3.14 / macOS arm64.
+psycopg[binary]==3.3.4
+
+# Scientific
+numpy==2.4.6
+matplotlib==3.10.9
+
+# Testing
+pytest==9.0.3

@@ -15,8 +15,10 @@ import (
 
 	"github.com/colnio/data-pipelines/internal/config"
 	"github.com/colnio/data-pipelines/internal/db"
+	"github.com/colnio/data-pipelines/internal/domain"
 	"github.com/colnio/data-pipelines/internal/ingest"
 	"github.com/colnio/data-pipelines/internal/jobs"
+	"github.com/colnio/data-pipelines/internal/review"
 	"github.com/colnio/data-pipelines/internal/run"
 	"github.com/colnio/data-pipelines/internal/transfer"
 )
@@ -70,7 +72,18 @@ func runWorker() error {
 		WorkerID: workerID(),
 	}, logger)
 
-	worker := jobs.NewWorker(queue, workerID(), pipeline.Handlers(), jobs.WorkerOptions{})
+	// Go worker handlers: transfer pull pipeline + Pipeline-B publish. The
+	// Python worker claims parse_run separately; ClaimTypes keeps them disjoint.
+	reviewSvc := review.NewService(pool, runs, queue, logger)
+	handlers := map[domain.JobType]jobs.Handler{}
+	for t, h := range pipeline.Handlers() {
+		handlers[t] = h
+	}
+	for t, h := range reviewSvc.Handlers() {
+		handlers[t] = h
+	}
+
+	worker := jobs.NewWorker(queue, workerID(), handlers, jobs.WorkerOptions{})
 	worker.SetLogger(logger)
 
 	logger.Info("worker starting", "worker_id", workerID(), "raw_root", cfg.RawRoot(), "staging", cfg.StagingRoot)
