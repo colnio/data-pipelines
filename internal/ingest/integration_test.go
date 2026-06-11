@@ -159,7 +159,7 @@ func TestIngestVertical_EndToEnd(t *testing.T) {
 	})
 
 	ft := &fakeTransport{archive: archive}
-	pipeline := ingest.NewPipeline(pool, runs, ft, ingest.PipelineConfig{
+	pipeline := ingest.NewPipeline(pool, runs, ft, queue, ingest.PipelineConfig{
 		StagingRoot: filepath.Join(base, "staging"),
 		RawRoot:     rawRoot,
 		Unpack:      transfer.UnpackOptions{MaxTotalBytes: 1 << 20, MaxFileBytes: 1 << 20, MaxEntries: 100},
@@ -210,6 +210,11 @@ func TestIngestVertical_EndToEnd(t *testing.T) {
 	}
 	assert.Equal(t, []string{"pulling", "unpacked", "verified", "promoted"}, path)
 
+	// A parse_run job was handed off to Pipeline A (the Python worker).
+	var parseJobs int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE run_id=$1 AND job_type='parse_run'`, m.RunID).Scan(&parseJobs))
+	assert.Equal(t, 1, parseJobs)
+
 	// ── Pipeline is idempotent: a retried job is a no-op success ──────────────
 	res2, err := pipeline.HandlePullRun(ctx, job)
 	require.NoError(t, err)
@@ -247,7 +252,7 @@ func TestIngest_BadArchiveHash_TransferFailed(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	pipeline := ingest.NewPipeline(pool, runs, &fakeTransport{archive: archive}, ingest.PipelineConfig{
+	pipeline := ingest.NewPipeline(pool, runs, &fakeTransport{archive: archive}, nil, ingest.PipelineConfig{
 		StagingRoot: filepath.Join(t.TempDir(), "staging"), RawRoot: filepath.Join(t.TempDir(), "raw"),
 		Unpack: transfer.UnpackOptions{MaxTotalBytes: 1 << 20, MaxFileBytes: 1 << 20, MaxEntries: 100},
 	}, logger)

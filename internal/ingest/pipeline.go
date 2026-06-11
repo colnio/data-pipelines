@@ -44,16 +44,18 @@ type Pipeline struct {
 	pool      *pgxpool.Pool
 	runs      *run.Repo
 	transport AgentTransport
+	queue     *jobs.Queue // enqueues the parse_run job handed off to the Python worker
 	cfg       PipelineConfig
 	log       *slog.Logger
 }
 
-// NewPipeline constructs the pipeline worker.
-func NewPipeline(pool *pgxpool.Pool, runs *run.Repo, transport AgentTransport, cfg PipelineConfig, log *slog.Logger) *Pipeline {
+// NewPipeline constructs the pipeline worker. queue may be nil (then no parse
+// job is enqueued after promotion — used by focused tests).
+func NewPipeline(pool *pgxpool.Pool, runs *run.Repo, transport AgentTransport, queue *jobs.Queue, cfg PipelineConfig, log *slog.Logger) *Pipeline {
 	if cfg.WorkerID == "" {
 		cfg.WorkerID = "pipeline"
 	}
-	return &Pipeline{pool: pool, runs: runs, transport: transport, cfg: cfg, log: log}
+	return &Pipeline{pool: pool, runs: runs, transport: transport, queue: queue, cfg: cfg, log: log}
 }
 
 // Handlers returns the job-type → handler map to register with a jobs.Worker.
@@ -193,10 +195,24 @@ func (pl *Pipeline) HandlePullRun(ctx context.Context, job domain.Job) (json.Raw
 
 	// 8. metadata gate (architecture §10): block scientific interpretation, not
 	// raw capture. Incomplete device/contact metadata → needs_metadata holding
-	// state; otherwise the run waits at promoted for the (Python) parse worker.
+	// state (no parse enqueued; resolving metadata later re-drives). Otherwise
+	// hand off to Pipeline A by enqueuing a parse_run job that the Python worker
+	// claims.
 	if r.SampleID == nil || r.DeviceID == nil {
 		if err := pl.transition(ctx, runID, domain.StatePromoted, domain.StateNeedsMetadata, "device/contact metadata incomplete"); err != nil {
 			pl.log.Warn("could not set needs_metadata", "run_id", runID, "err", err)
+		}
+	} else if pl.queue != nil {
+		payload, _ := json.Marshal(struct {
+			RunID string `json:"run_id"`
+		}{RunID: runID})
+		if _, err := pl.queue.Enqueue(ctx, jobs.EnqueueParams{
+			JobType:        domain.JobParseRun,
+			RunID:          &runID,
+			IdempotencyKey: "parse:" + runID,
+			Payload:        payload,
+		}); err != nil {
+			pl.log.Warn("could not enqueue parse_run", "run_id", runID, "err", err)
 		}
 	}
 

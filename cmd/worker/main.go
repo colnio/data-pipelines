@@ -58,7 +58,7 @@ func runWorker() error {
 		Timeout:   cfg.PullTimeout,
 	})
 
-	pipeline := ingest.NewPipeline(pool, runs, transport, ingest.PipelineConfig{
+	pipeline := ingest.NewPipeline(pool, runs, transport, queue, ingest.PipelineConfig{
 		StagingRoot:     cfg.StagingRoot,
 		RawRoot:         cfg.RawRoot(),
 		MaxArchiveBytes: cfg.MaxArchiveBytes,
