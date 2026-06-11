@@ -17,8 +17,10 @@ cmd/worker/worker
 
 # Node / Vite
 node_modules/
+dist/
 ui/dist/
 ui/node_modules/
+web/dist/
 
 # Python
 __pycache__/
