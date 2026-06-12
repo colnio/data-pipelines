@@ -1,0 +1,12 @@
+# Build-context excludes (context = repo root for the JupyterHub image).
+# Keep the image small and the build fast: no venvs, caches, VCS, or web build.
+.git
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.ipynb_checkpoints
+**/*.egg-info
+web/node_modules
+web/dist
+bin

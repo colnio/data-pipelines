@@ -66,7 +66,18 @@ DATABASE_URL=postgres://lab:lab@localhost:5432/labdata LABDATA_ROOT=/srv/labdata
 
 # 5. Web UI (dev) → http://localhost:5173, proxies to :8080
 cd web && pnpm install && pnpm dev
+
+# 6. JupyterHub (dev container) → http://localhost:8000 (architecture §18)
+make readonly NB_PASSWORD=secret   # create labdata_nb read-only Postgres user
+make jupyter   NB_PASSWORD=secret   # build + run the Hub (needs the API + Postgres up)
 ```
+
+JupyterHub gives lab members **read-only** server-side exploration: log in with the
+same web account (API-backed SSO), `import labdata` for catalog queries
+(`labdata.catalog` over the `v_*` views as `labdata_readonly`), `labdata.store`
+to resolve raw/processed paths, and `labdata.duck` for DuckDB SQL. Raw/published
+are mounted read-only; only per-user scratch is writable. Starter notebooks live
+in `notebooks/`. Production deploys via TLJH — see `deploy/jupyterhub/TLJH.md`.
 
 Configuration is via env / `.env` (see [`.env.example`](./.env.example)).
 
@@ -111,8 +122,8 @@ without Docker.
 | Reproducibility receipt per published result | ✅ §5 receipt in `published_results` |
 | Missed notification recoverable by reconciliation | ◑ queue `ReclaimStale` done; agent reconciliation scan is a follow-up |
 | Duplicate notifications/retries don't duplicate runs/artifacts | ✅ idempotent on run_id / manifest hash / idempotency key |
+| JupyterHub read-only explore | ✅ `v_*` views + `labdata_readonly` role + `labdata` notebook lib + Hub (§18) |
 | Backups + tested restore | ☐ deferred (spec §6) |
-| JupyterHub read-only explore | ☐ deferred (spec §18) |
 
 ## Follow-ups
 

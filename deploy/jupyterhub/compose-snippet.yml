@@ -1,0 +1,42 @@
+# compose-snippet.yml — docker-compose service block for JupyterHub (dev).
+#
+# NOTE: Merge this snippet into deploy/docker-compose.dev.yml under the
+# top-level `services:` key.  Also add `labdata_scratch` to the top-level
+# `volumes:` section if it is not already there.
+#
+# The build context is the repo root so the Dockerfile can COPY workers/.
+
+services:
+  jupyterhub:
+    build:
+      context: ..          # repo root — Dockerfile uses COPY workers/ etc.
+      dockerfile: deploy/jupyterhub/Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      JUPYTERHUB_DEV: "1"
+      LABDATA_API_URL: "http://host.docker.internal:8080"
+      # Filesystem root — raw/ and published/ are mounted read-only below.
+      LABDATA_ROOT: "/srv/labdata"
+      # Read-only Postgres role for notebook catalog queries.
+      LABDATA_READONLY_URL: "postgresql://labdata_nb:${NB_PASSWORD:-changeme}@host.docker.internal:5432/lab?sslmode=disable"
+      # Full DATABASE_URL for the JupyterHub internal DB (SQLite default) —
+      # override to point at the compose postgres service if desired.
+      DATABASE_URL: "postgresql://lab:lab@host.docker.internal:5432/lab?sslmode=disable"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      # Shared notebooks from the repo (read-write so users can save work).
+      - ../notebooks:/srv/labdata/notebooks
+      # Per-user scratch space (named volume, read-write).
+      - labdata_scratch:/srv/labdata/scratch
+      # Host LABDATA raw tree — read-only, matching ingest account ownership.
+      - ${LABDATA_RAW_HOST_PATH:-/srv/labdata/raw}:/srv/labdata/raw:ro
+      # Host LABDATA published tree — read-only.
+      - ${LABDATA_PUBLISHED_HOST_PATH:-/srv/labdata/published}:/srv/labdata/published:ro
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+volumes:
+  labdata_scratch:

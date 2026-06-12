@@ -26,5 +26,35 @@ services:
       timeout: 5s
       retries: 10
 
+  # JupyterHub — critical interactive compute layer (architecture §18).
+  # Dev profile: SimpleLocalProcessSpawner + API-backed SSO. It reaches the Go
+  # API and Postgres on the HOST (this project reuses the host's Postgres and
+  # runs `make server` on the host), so there is no depends_on here. Start with
+  # `make jupyter`; the host API (:8080) and Postgres (:5432, db `labdata`) must
+  # be up, and the labdata_nb role must exist (`make readonly`).
+  # Build with `--profile jupyter` so a plain `up` does not build the image.
+  jupyterhub:
+    profiles: ["jupyter"]
+    build:
+      context: ..                    # repo root — Dockerfile COPYs workers/
+      dockerfile: deploy/jupyterhub/Dockerfile
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      JUPYTERHUB_DEV: "1"
+      LABDATA_API_URL: "http://host.docker.internal:8080"
+      LABDATA_ROOT: "/srv/labdata"
+      LABDATA_READONLY_URL: "postgresql://labdata_nb:${NB_PASSWORD:-changeme}@host.docker.internal:5432/labdata?sslmode=disable"
+      DATABASE_URL: "postgresql://labdata_nb:${NB_PASSWORD:-changeme}@host.docker.internal:5432/labdata?sslmode=disable"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ../notebooks:/srv/labdata/notebooks
+      - labdata_scratch:/srv/labdata/scratch
+      - ${LABDATA_RAW_HOST_PATH:-/tmp/labdata-nbdemo/raw}:/srv/labdata/raw:ro
+      - ${LABDATA_PUBLISHED_HOST_PATH:-/tmp/labdata-nbdemo/published}:/srv/labdata/published:ro
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  labdata_scratch:

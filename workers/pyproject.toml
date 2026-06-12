@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "labdata"
+version = "0.1.0"
+description = "Lab data pipeline worker and JupyterHub notebook helpers"
+requires-python = ">=3.11"
+dependencies = [
+    "psycopg[binary]>=3.1",
+    "numpy>=1.24",
+    "matplotlib>=3.6",
+    "pandas>=2.0",
+    "pyarrow>=12.0",
+    "duckdb>=1.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["labdata*"]

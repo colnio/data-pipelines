@@ -7,5 +7,15 @@ psycopg[binary]==3.3.4
 numpy==2.4.6
 matplotlib==3.10.9
 
+# JupyterHub notebook helpers (architecture §18)
+# pandas 3.0.3 — cp314-cp314-macosx_11_0_arm64 wheel available
+pandas==3.0.3
+# pyarrow 24.0.0 — cp314-cp314-macosx_12_0_arm64 wheel available
+pyarrow==24.0.0
+# duckdb 1.5.3 — cp314-cp314-macosx_11_0_arm64 wheel available
+duckdb==1.5.3
+# pytz required by duckdb's postgres extension for timestamptz columns
+pytz>=2023.3
+
 # Testing
 pytest==9.0.3
