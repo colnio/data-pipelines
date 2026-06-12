@@ -4,6 +4,202 @@
  */
 
 export interface paths {
+    "/v1/admin/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List agents
+         * @description Returns all agents with their allowed roots. Requires admin or pi role.
+         */
+        get: operations["admin-list-agents"];
+        put?: never;
+        /**
+         * Register a new agent
+         * @description Creates a new agent and returns its raw key (shown ONCE). Requires admin role.
+         */
+        post: operations["admin-register-agent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/agents/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update agent enabled flag or allowed roots
+         * @description Enables/disables an agent and/or replaces its allowed roots. Requires admin role.
+         */
+        patch: operations["admin-patch-agent"];
+        trace?: never;
+    };
+    "/v1/admin/agents/{id}/rotate-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate an agent key
+         * @description Generates and stores a new key for the agent; returns the raw key once. Requires admin role.
+         */
+        post: operations["admin-rotate-agent-key"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List run state transitions
+         * @description Read-only audit log of state transitions, optionally filtered by run_id. Requires admin or pi role.
+         */
+        get: operations["admin-list-audit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List jobs
+         * @description Read-only inspection of the jobs queue, optionally filtered. Requires admin or pi role.
+         */
+        get: operations["admin-list-jobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get notification configuration */
+        get: operations["notify-config-get"];
+        /** Update notification configuration */
+        put: operations["notify-config-put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recent notification delivery log */
+        get: operations["notify-log"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/notifications/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send a test notification */
+        post: operations["notify-test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users
+         * @description Returns all users, optionally filtered by status and/or role. Requires admin or pi role.
+         */
+        get: operations["admin-list-users"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update user status or role
+         * @description Changes a user's status and/or global_role. Requires admin role.
+         */
+        patch: operations["admin-patch-user"];
+        trace?: never;
+    };
     "/v1/agents/manifest": {
         parameters: {
             query?: never;
@@ -78,6 +274,106 @@ export interface paths {
          * @description Creates a new human reviewer account. In development the account is immediately active; in production it requires admin activation.
          */
         post: operations["auth-register"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/contact-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List contact configurations
+         * @description Browse contact configurations, optionally filtered by device_id, paginated by created_at keyset.
+         */
+        get: operations["catalog-list-contact-configs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List devices
+         * @description Browse devices, optionally filtered by sample_id, paginated by created_at keyset.
+         */
+        get: operations["catalog-list-devices"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/devices/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a device
+         * @description Returns a single device by id.
+         */
+        get: operations["catalog-get-device"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/jupyter/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get JupyterHub connection
+         * @description Mints a 24-hour Hub token for the calling user and returns the full connection info needed by VS Code.
+         */
+        post: operations["jupyter-connection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/jupyter/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * JupyterHub info
+         * @description Returns the Hub URL and a reachability probe result. Never errors — reachable is false when the Hub is down.
+         */
+        get: operations["jupyter-info"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -244,10 +540,222 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/samples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List samples
+         * @description Browse samples from the catalog, paginated by created_at keyset.
+         */
+        get: operations["catalog-list-samples"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/samples/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a sample
+         * @description Returns a single sample by id.
+         */
+        get: operations["catalog-get-sample"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AdminAgentRow: {
+            allowed_roots: string[] | null;
+            /** Format: date-time */
+            created_at: string;
+            display_name: string;
+            enabled: boolean;
+            id: string;
+            /** Format: date-time */
+            last_seen_at?: string;
+        };
+        AdminAuditRow: {
+            actor_id: string;
+            actor_type: string;
+            /** Format: date-time */
+            created_at: string;
+            from_state: string;
+            /** Format: int64 */
+            id: number;
+            payload_json: unknown;
+            reason: string;
+            run_id: string;
+            to_state: string;
+        };
+        AdminJobRow: {
+            /** Format: int64 */
+            attempt_count: number;
+            /** Format: date-time */
+            available_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            finished_at?: string;
+            /** Format: int64 */
+            id: number;
+            idempotency_key: string;
+            job_type: string;
+            last_error?: string;
+            /** Format: int64 */
+            max_attempts: number;
+            payload_json: unknown;
+            /** Format: int64 */
+            priority: number;
+            run_id?: string;
+            /** Format: date-time */
+            started_at?: string;
+            state: string;
+        };
+        AdminListAgentsOutputBody_d8325375: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminListAgentsOutputBody_d8325375.json
+             */
+            readonly $schema?: string;
+            agents: components["schemas"]["AdminAgentRow"][] | null;
+        };
+        AdminListAuditOutputBody_a81d6e99: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminListAuditOutputBody_a81d6e99.json
+             */
+            readonly $schema?: string;
+            transitions: components["schemas"]["AdminAuditRow"][] | null;
+        };
+        AdminListJobsOutputBody_74a210bf: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminListJobsOutputBody_74a210bf.json
+             */
+            readonly $schema?: string;
+            jobs: components["schemas"]["AdminJobRow"][] | null;
+        };
+        AdminListUsersOutputBody_9820a3ab: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminListUsersOutputBody_9820a3ab.json
+             */
+            readonly $schema?: string;
+            users: components["schemas"]["AdminUserRow"][] | null;
+        };
+        AdminPatchAgentInputBody_6dfd5883: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminPatchAgentInputBody_6dfd5883.json
+             */
+            readonly $schema?: string;
+            /** @description Replace the full set of allowed roots */
+            allowed_roots?: string[] | null;
+            /** @description Enable or disable the agent */
+            enabled?: boolean;
+        };
+        AdminPatchAgentOutputBody_8a981e73: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminPatchAgentOutputBody_8a981e73.json
+             */
+            readonly $schema?: string;
+            id: string;
+            updated: string[] | null;
+        };
+        AdminPatchUserInputBody_230021dd: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminPatchUserInputBody_230021dd.json
+             */
+            readonly $schema?: string;
+            /** @description New global_role: admin, pi, or member */
+            global_role?: string;
+            /** @description New status: pending, active, or disabled */
+            status?: string;
+        };
+        AdminPatchUserOutputBody_3abec444: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminPatchUserOutputBody_3abec444.json
+             */
+            readonly $schema?: string;
+            id: string;
+            updated: string[] | null;
+        };
+        AdminRegisterAgentInputBody_e8917e1a: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminRegisterAgentInputBody_e8917e1a.json
+             */
+            readonly $schema?: string;
+            /** @description Filesystem roots the agent may expose */
+            allowed_roots: string[] | null;
+            /** @description Human-readable display name */
+            display_name: string;
+            /** @description Human-meaningful agent identifier */
+            id: string;
+        };
+        AdminRegisterAgentOutputBody_a33cf55e: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminRegisterAgentOutputBody_a33cf55e.json
+             */
+            readonly $schema?: string;
+            id: string;
+            /** @description The raw agent key — shown ONCE; store it securely */
+            raw_key: string;
+        };
+        AdminRotateKeyOutputBody_c9525ea8: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/AdminRotateKeyOutputBody_c9525ea8.json
+             */
+            readonly $schema?: string;
+            id: string;
+            /** @description The new raw agent key — shown ONCE; store it securely */
+            raw_key: string;
+        };
+        AdminUserRow: {
+            /** Format: date-time */
+            created_at: string;
+            display_name: string;
+            email: string;
+            global_role: string;
+            id: string;
+            status: string;
+        };
         AuthLoginInputBody_663e576b: {
             /**
              * Format: uri
@@ -308,6 +816,73 @@ export interface components {
             readonly $schema?: string;
             user_id: string;
         };
+        CatalogGetDeviceOutputBody_8f88b4cc: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/CatalogGetDeviceOutputBody_8f88b4cc.json
+             */
+            readonly $schema?: string;
+            device: components["schemas"]["Device"];
+        };
+        CatalogGetSampleOutputBody_cb651ec4: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/CatalogGetSampleOutputBody_cb651ec4.json
+             */
+            readonly $schema?: string;
+            sample: components["schemas"]["Sample"];
+        };
+        CatalogListContactConfigsOutputBody_d15dde9e: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/CatalogListContactConfigsOutputBody_d15dde9e.json
+             */
+            readonly $schema?: string;
+            contact_configs: components["schemas"]["ContactConfig"][] | null;
+            next_cursor?: string;
+        };
+        CatalogListDevicesOutputBody_a8fed439: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/CatalogListDevicesOutputBody_a8fed439.json
+             */
+            readonly $schema?: string;
+            devices: components["schemas"]["Device"][] | null;
+            next_cursor?: string;
+        };
+        CatalogListSamplesOutputBody_750ca2b5: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/CatalogListSamplesOutputBody_750ca2b5.json
+             */
+            readonly $schema?: string;
+            next_cursor?: string;
+            samples: components["schemas"]["Sample"][] | null;
+        };
+        ContactConfig: {
+            /** Format: date-time */
+            created_at: string;
+            device_id?: string;
+            id: string;
+            is_default: boolean;
+            notes?: string;
+            terminal_roles_json?: unknown;
+        };
+        Device: {
+            /** Format: date-time */
+            created_at: string;
+            device_class: string;
+            fabrication_id?: string;
+            id: string;
+            lifecycle_state?: string;
+            notes?: string;
+            sample_id?: string;
+        };
         ErrorModel: {
             /**
              * Format: uri
@@ -335,13 +910,41 @@ export interface components {
             run: components["schemas"]["Run"];
             transitions: components["schemas"]["RunStateTransition"][] | null;
         };
-        ListRunsOutputBody_9b02742d: {
+        JupyterConnectionBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example //schemas/ListRunsOutputBody_9b02742d.json
+             * @example //schemas/JupyterConnectionBody.json
              */
             readonly $schema?: string;
+            /** Format: date-time */
+            expires_at: string;
+            hub_url: string;
+            server_url: string;
+            token: string;
+            username: string;
+            vscode_server_uri: string;
+        };
+        JupyterInfoBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/JupyterInfoBody.json
+             */
+            readonly $schema?: string;
+            /** Format: date-time */
+            checked_at: string;
+            hub_url: string;
+            reachable: boolean;
+        };
+        ListRunsOutputBody_e3aaf148: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/ListRunsOutputBody_e3aaf148.json
+             */
+            readonly $schema?: string;
+            next_cursor?: string;
             runs: components["schemas"]["Run"][] | null;
         };
         Manifest: {
@@ -394,6 +997,77 @@ export interface components {
             created: boolean;
             run_id: string;
             state: string;
+        };
+        NotificationRow: {
+            channel: string;
+            /** Format: date-time */
+            created_at: string;
+            event_type: string;
+            /** Format: int64 */
+            id: number;
+            last_error: string;
+            /** Format: date-time */
+            sent_at?: string;
+            status: string;
+            target: string;
+        };
+        NotifyConfigBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/NotifyConfigBody.json
+             */
+            readonly $schema?: string;
+            /** @description Telegram bot token; empty means use the server env var */
+            bot_token: string;
+            /** @description Telegram chat or channel ID */
+            chat_id: string;
+            /** Format: date-time */
+            created_at?: string;
+            /** @description Notify when a run enters awaiting_review */
+            on_awaiting_review: boolean;
+            /** @description Notify when a run is published */
+            on_published: boolean;
+            /** @description Notify when a run is quarantined */
+            on_quarantined: boolean;
+            /** @description Send test notifications */
+            on_test: boolean;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        NotifyConfigPutInputBody_21d119b2: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/NotifyConfigPutInputBody_21d119b2.json
+             */
+            readonly $schema?: string;
+            bot_token: string;
+            chat_id: string;
+            on_awaiting_review: boolean;
+            on_published: boolean;
+            on_quarantined: boolean;
+            on_test: boolean;
+        };
+        NotifyLogOutputBody_efc013dc: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/NotifyLogOutputBody_efc013dc.json
+             */
+            readonly $schema?: string;
+            notifications: components["schemas"]["NotificationRow"][] | null;
+        };
+        NotifyTestOutputBody_30b82b05: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example //schemas/NotifyTestOutputBody_30b82b05.json
+             */
+            readonly $schema?: string;
+            enqueued: boolean;
+            /** Format: int64 */
+            job_id?: number;
         };
         ReviewApproveOutputBody_7d680067: {
             /**
@@ -564,6 +1238,16 @@ export interface components {
             run_id: string;
             to_state: string;
         };
+        Sample: {
+            /** Format: date-time */
+            created_at: string;
+            dielectric?: unknown;
+            fabrication_batch?: string;
+            id: string;
+            material_stack?: string;
+            notes?: string;
+            params_json?: unknown;
+        };
         UserProfile: {
             display_name: string;
             email: string;
@@ -579,6 +1263,397 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "admin-list-agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminListAgentsOutputBody_d8325375"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "admin-register-agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminRegisterAgentInputBody_e8917e1a"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRegisterAgentOutputBody_a33cf55e"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "admin-patch-agent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPatchAgentInputBody_6dfd5883"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPatchAgentOutputBody_8a981e73"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "admin-rotate-agent-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminRotateKeyOutputBody_c9525ea8"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "admin-list-audit": {
+        parameters: {
+            query?: {
+                /** @description Filter by run_id */
+                run_id?: string;
+                /** @description Max results (1–500, default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminListAuditOutputBody_a81d6e99"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "admin-list-jobs": {
+        parameters: {
+            query?: {
+                /** @description Filter by job state: queued, running, succeeded, failed, dead */
+                state?: string;
+                /** @description Filter by job_type */
+                job_type?: string;
+                /** @description Max results (1–500, default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminListJobsOutputBody_74a210bf"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "notify-config-get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyConfigBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "notify-config-put": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotifyConfigPutInputBody_21d119b2"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyConfigBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "notify-log": {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyLogOutputBody_efc013dc"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "notify-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotifyTestOutputBody_30b82b05"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "admin-list-users": {
+        parameters: {
+            query?: {
+                /** @description Filter by status: pending, active, or disabled */
+                status?: string;
+                /** @description Filter by global_role: admin, pi, or member */
+                role?: string;
+                /** @description Max results (1–500, default 50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminListUsersOutputBody_9820a3ab"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "admin-patch-user": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminPatchUserInputBody_230021dd"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminPatchUserOutputBody_3abec444"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "agent-post-manifest": {
         parameters: {
             query?: never;
@@ -699,6 +1774,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthRegisterOutputBody_f5e4d292"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "catalog-list-contact-configs": {
+        parameters: {
+            query?: {
+                device_id?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogListContactConfigsOutputBody_d15dde9e"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "catalog-list-devices": {
+        parameters: {
+            query?: {
+                sample_id?: string;
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogListDevicesOutputBody_a8fed439"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "catalog-get-device": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogGetDeviceOutputBody_8f88b4cc"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "jupyter-connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JupyterConnectionBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "jupyter-info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JupyterInfoBody"];
                 };
             };
             /** @description Error */
@@ -919,6 +2149,11 @@ export interface operations {
                 measurement_type?: string;
                 agent_id?: string;
                 limit?: number;
+                condition_label?: string;
+                declared_after?: string;
+                declared_before?: string;
+                publication_status?: string;
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -932,7 +2167,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ListRunsOutputBody_9b02742d"];
+                    "application/json": components["schemas"]["ListRunsOutputBody_e3aaf148"];
                 };
             };
             /** @description Error */
@@ -964,6 +2199,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GetRunOutputBody_87da3ba3"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "catalog-list-samples": {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogListSamplesOutputBody_750ca2b5"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "catalog-get-sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogGetSampleOutputBody_cb651ec4"];
                 };
             };
             /** @description Error */

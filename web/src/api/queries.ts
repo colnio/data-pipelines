@@ -17,6 +17,11 @@ export interface ListRunsParams {
   device_id?: string
   measurement_type?: string
   agent_id?: string
+  condition_label?: string
+  declared_after?: string
+  declared_before?: string
+  publication_status?: string
+  cursor?: string
   limit?: number
 }
 
@@ -54,13 +59,18 @@ export function useRunsQuery(params?: ListRunsParams) {
   if (params?.device_id) search.set('device_id', params.device_id)
   if (params?.measurement_type) search.set('measurement_type', params.measurement_type)
   if (params?.agent_id) search.set('agent_id', params.agent_id)
+  if (params?.condition_label) search.set('condition_label', params.condition_label)
+  if (params?.declared_after) search.set('declared_after', params.declared_after)
+  if (params?.declared_before) search.set('declared_before', params.declared_before)
+  if (params?.publication_status) search.set('publication_status', params.publication_status)
+  if (params?.cursor) search.set('cursor', params.cursor)
   if (params?.limit != null) search.set('limit', String(params.limit))
   const qs = search.toString() ? `?${search.toString()}` : ''
 
   return useQuery({
     queryKey: queryKeys.runs(params),
     queryFn: () =>
-      api.get<components['schemas']['ListRunsOutputBody_9b02742d']>(`/v1/runs${qs}`),
+      api.get<components['schemas']['ListRunsOutputBody_e3aaf148']>(`/v1/runs${qs}`),
   })
 }
 

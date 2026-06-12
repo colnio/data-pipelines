@@ -2,6 +2,8 @@ import { Box, Title, Text, Group, Table, Timeline, Alert, Loader, Stack, Divider
 import { useParams, Link } from '@tanstack/react-router'
 import { useRunQuery } from '@/api/queries'
 import { StateBadge } from '@/components/StateBadge'
+import { ArtifactGallery } from '@/components/ArtifactGallery'
+import { CsvPreview } from '@/components/CsvPreview'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -23,6 +25,7 @@ export function RunDetailPage() {
   if (!data) return null
 
   const { run, files, transitions } = data
+  const csvFiles = (files ?? []).filter((f) => f.name.toLowerCase().endsWith('.csv'))
 
   return (
     <Box>
@@ -91,11 +94,21 @@ export function RunDetailPage() {
 
       <Divider mb="xl" />
 
+      {/* Artifacts */}
+      <Title order={5} mb="sm">
+        Artifacts
+      </Title>
+      <Box mb="xl">
+        <ArtifactGallery runId={id} />
+      </Box>
+
+      <Divider mb="xl" />
+
       {/* Files */}
       <Title order={5} mb="sm">
         Files
       </Title>
-      <Table withTableBorder mb="xl">
+      <Table withTableBorder mb="md">
         <Table.Thead>
           <Table.Tr>
             <Table.Th>Name</Table.Th>
@@ -124,6 +137,20 @@ export function RunDetailPage() {
           ))}
         </Table.Tbody>
       </Table>
+
+      {/* CSV previews */}
+      {csvFiles.length > 0 && (
+        <Box mb="xl">
+          <Title order={6} mb="sm">
+            CSV previews
+          </Title>
+          {csvFiles.map((f) => (
+            <CsvPreview key={f.id} runId={run.id} fileId={f.id} filename={f.name} />
+          ))}
+        </Box>
+      )}
+
+      <Divider mb="xl" />
 
       {/* Audit trail */}
       <Title order={5} mb="sm">

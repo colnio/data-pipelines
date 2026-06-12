@@ -8,7 +8,7 @@ import { ModalsProvider } from '@mantine/modals'
 import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
 import { AuthProvider, useAuth } from '@/auth/AuthContext'
-import { setIsAuthenticated } from '@/router'
+import { setIsAuthenticated, setIsPrivileged } from '@/router'
 import { router } from '@/router'
 import { getToken } from '@/api/client'
 
@@ -23,7 +23,7 @@ const queryClient = new QueryClient({
 })
 
 function AppBridge() {
-  const { status } = useAuth()
+  const { status, user } = useAuth()
 
   // The route guard reads the LIVE token rather than this render's captured
   // `status`. login() writes the token before navigating to '/', so the guard
@@ -32,6 +32,7 @@ function AppBridge() {
   // status==='loading' gate below still blocks rendering until /v1/auth/me
   // validates a stored token on first load.
   setIsAuthenticated(() => status === 'authenticated' || !!getToken())
+  setIsPrivileged(() => user?.global_role === 'admin' || user?.global_role === 'pi')
 
   if (status === 'loading') {
     return (

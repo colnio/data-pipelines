@@ -4,7 +4,6 @@ import {
   Anchor,
   Box,
   Button,
-  Code,
   Divider,
   Group,
   Loader,
@@ -17,6 +16,7 @@ import {
   Timeline,
   Title,
 } from '@mantine/core'
+import { ArtifactGallery } from '@/components/ArtifactGallery'
 import { useParams, Link, useNavigate } from '@tanstack/react-router'
 import { notifications } from '@mantine/notifications'
 import {
@@ -239,24 +239,19 @@ export function ReviewDetailPage() {
             </>
           )}
 
-          {latest_artifact.plots_json && (
-            <>
-              <Title order={5} mb="sm">
-                Plot references
-              </Title>
-              <Text fz="xs" c="dimmed" mb="xs">
-                plots_json contains server-side file paths. Image serving is a
-                follow-up endpoint — display only.
-              </Text>
-              <Code block mb="lg" fz={12}>
-                {JSON.stringify(latest_artifact.plots_json, null, 2)}
-              </Code>
-            </>
-          )}
-
           <Divider mb="lg" />
         </>
       )}
+
+      {/* Artifacts (plots + notebook) */}
+      <Title order={5} mb="sm">
+        Artifacts
+      </Title>
+      <Box mb="lg">
+        <ArtifactGallery runId={runId} />
+      </Box>
+
+      <Divider mb="lg" />
 
       {/* Files */}
       <Title order={5} mb="sm">
