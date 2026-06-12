@@ -86,6 +86,7 @@ const (
 	JobProcessRun           JobType = "process_run"
 	JobCreateReviewArtifact JobType = "create_review_artifact"
 	JobSendNotification     JobType = "send_notification"
+	JobProcessSession       JobType = "process_session"
 	JobPublishRun           JobType = "publish_run"
 	JobReconcileAgent       JobType = "reconcile_agent"
 	JobBackupCheck          JobType = "backup_check"

@@ -258,6 +258,51 @@ func decodeCursor(cursor string) (declaredAt time.Time, id string, err error) {
 	return t, parts[1], nil
 }
 
+// EnsureSessionRun idempotently creates the synthetic "session run" that carries
+// a whole sample-session's aggregate analysis (the C-V/C-F and IV-breakdown
+// summaries) through the existing review/publish state machine. The run id is
+// "<sampleID>:<sessionKey>" and it is inserted directly in 'promoted' — its data
+// already lives on disk — so the Python session processor drives
+// promoted -> parsing -> validated -> processing -> awaiting_review exactly like
+// a normal parse. Returns the run id and whether it was newly created.
+func (r *Repo) EnsureSessionRun(ctx context.Context, sampleID, sessionKey, sessionDir, declaredBy string) (string, bool, error) {
+	runID := sampleID + ":" + sessionKey
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return "", false, err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	// Synthetic runs still need an agent (runs.agent_id is NOT NULL, FK to
+	// agents). Ensure a non-loginable system agent exists; its key_hash is a
+	// placeholder so it can never authenticate as a real measurement agent.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO agents (id, display_name, key_hash)
+		VALUES ('session-processor', 'Session Processor', '-')
+		ON CONFLICT (id) DO NOTHING`); err != nil {
+		return "", false, fmt.Errorf("ensure session agent: %w", err)
+	}
+
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO runs (
+			id, manifest_hash, agent_id, measurement_type, completion_source,
+			sample_id, meas_path, state, declared_by, declared_at
+		) VALUES ($1, $2, 'session-processor', 'session_summary', 'operator',
+		          $3, $4, 'promoted', $5, now())
+		ON CONFLICT (id) DO NOTHING`,
+		runID, "session:"+runID, sampleID, sessionDir, declaredBy)
+	if err != nil {
+		return "", false, fmt.Errorf("insert session run: %w", err)
+	}
+	created := tag.RowsAffected() == 1
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", false, err
+	}
+	return runID, created, nil
+}
+
 // List returns runs newest-first (declared_at DESC, id DESC) matching the
 // filter. Returns the slice, an opaque next_cursor (non-empty only when a full
 // page was returned), and any error.

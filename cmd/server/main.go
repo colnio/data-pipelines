@@ -33,6 +33,7 @@ import (
 	"github.com/colnio/data-pipelines/internal/platform"
 	"github.com/colnio/data-pipelines/internal/review"
 	"github.com/colnio/data-pipelines/internal/run"
+	"github.com/colnio/data-pipelines/internal/session"
 )
 
 func main() {
@@ -104,6 +105,7 @@ func runServer() error {
 	admin.Register(srv.API, admin.NewService(pool, authSvc, agentSvc))
 	notify.Register(srv.API, notify.NewService(pool, cfg, queue, logger))
 	jupyter.Register(srv.API, jupyter.NewService(cfg, logger))
+	session.Register(srv.API, session.NewService(pool, runRepo, queue))
 	// fileserve streams binary artifacts/raw files; it mounts raw chi routes
 	// (not huma) on the same router so the AuthResolver middleware still runs.
 	fileserve.Register(srv.Router, fileserve.NewService(pool, runRepo, cfg))
