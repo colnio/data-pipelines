@@ -1,0 +1,3 @@
+thickness 2.5nm 
+
+area = {'big': 771786.0, 'mid': 192180.0, 'small': 67400.0, 'little': 28508.0, 'tiny': 6333.0}

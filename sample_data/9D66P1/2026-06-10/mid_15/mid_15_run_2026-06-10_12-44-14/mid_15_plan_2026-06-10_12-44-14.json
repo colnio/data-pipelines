@@ -1,0 +1,52 @@
+{
+  "created": "2026-06-10T12:44:14",
+  "config": {
+    "host": "192.168.121.162",
+    "port": 8004,
+    "device": "",
+    "imps": 0,
+    "model": 0,
+    "quality": 2,
+    "auto_bw": true,
+    "inputrange_mode": 1,
+    "manual_current_range": 1e-06,
+    "demod_order": 4,
+    "demod_timeconstant": 0.01,
+    "demod_rate": 200.0,
+    "demod_sinc": false,
+    "ramp_step": 0.05,
+    "ramp_wait": 0.01
+  },
+  "blocks": [
+    {
+      "name": "cf_0V",
+      "mode": "frequency",
+      "min_value": 100.0,
+      "max_value": 5000000.0,
+      "spacing": "log",
+      "use_points": true,
+      "step": 0.1,
+      "points": 100,
+      "order": "zero_max_min_zero",
+      "fixed_bias": 0.0,
+      "fixed_amplitude": 0.1,
+      "fixed_frequency": 1000.0,
+      "settle_s": 0.1
+    },
+    {
+      "name": "cv_100kHz",
+      "mode": "bias",
+      "min_value": -0.5,
+      "max_value": 0.5,
+      "spacing": "linear",
+      "use_points": true,
+      "step": 0.1,
+      "points": 51,
+      "order": "zero_max_min_zero",
+      "fixed_bias": -1.0,
+      "fixed_amplitude": 0.1,
+      "fixed_frequency": 100000.0,
+      "settle_s": 0.1
+    }
+  ]
+}

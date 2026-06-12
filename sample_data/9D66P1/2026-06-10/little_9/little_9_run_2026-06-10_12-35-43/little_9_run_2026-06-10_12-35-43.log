@@ -1,0 +1,15 @@
+2026-06-10 12:35:43,170 [INFO] Run folder: D:\Iurii\9D66P1\2026-06-10\little_9\little_9_run_2026-06-10_12-35-43
+2026-06-10 12:35:43,171 [INFO] Saved recipe: D:\Iurii\9D66P1\2026-06-10\little_9\little_9_run_2026-06-10_12-35-43\little_9_plan_2026-06-10_12-35-43.json
+2026-06-10 12:35:45,268 [INFO] Connected to dev7784 via PCIe
+2026-06-10 12:35:45,465 [INFO] Warning: failed to configure quality node
+2026-06-10 12:35:45,495 [INFO] Subscribed demod sample: /dev7784/demods/0/sample
+2026-06-10 12:35:45,622 [INFO] Block 1/2: cf_0V mode=frequency, points=200
+2026-06-10 12:35:45,677 [INFO] FREQUENCY range guard enabled (input range mode=1).
+2026-06-10 12:35:47,313 [INFO] Range changed in C(V)/C(F): using one-shot settle guard to suppress transients.
+2026-06-10 12:36:23,131 [INFO] Warning: demod sample read timed out; falling back to impedance stream.
+2026-06-10 12:37:12,150 [INFO] Saved block data: D:\Iurii\9D66P1\2026-06-10\little_9\little_9_run_2026-06-10_12-35-43\data\little_9_cf_0V_block01_frequency_log_zmaxminz_2026-06-10_12-35-43.csv
+2026-06-10 12:37:12,150 [INFO] Block 2/2: cv_100kHz mode=bias, points=151
+2026-06-10 12:37:12,165 [INFO] BIAS range guard enabled (input range mode=1).
+2026-06-10 12:37:13,497 [INFO] Range changed in C(V)/C(F): using one-shot settle guard to suppress transients.
+2026-06-10 12:38:21,883 [INFO] Saved block data: D:\Iurii\9D66P1\2026-06-10\little_9\little_9_run_2026-06-10_12-35-43\data\little_9_cv_100kHz_block02_bias_linear_zmaxminz_2026-06-10_12-35-43.csv
+2026-06-10 12:38:21,887 [INFO] Sweep finished.

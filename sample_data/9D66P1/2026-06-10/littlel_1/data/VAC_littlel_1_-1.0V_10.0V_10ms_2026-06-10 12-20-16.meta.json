@@ -1,0 +1,53 @@
+{
+  "measurement_type": "VAC",
+  "start_time": "2026-06-10 12-20-16",
+  "date_folder": "2026-06-10",
+  "base_folder": "D:/Iurii/9D66P1",
+  "sample_name_at_start": "littlel_1",
+  "device": {
+    "selection_text": "GPIB0::7::INSTR - 2400 - Keithley2400 - KEITHLEY INSTRUMENTS INC.,MODEL 2400,4043510,C32   Oct  4 2010 14:20:11/A02  /T/K",
+    "resource": "GPIB0::7::INSTR",
+    "reported_model": "2400",
+    "reported_driver_class": "Keithley2400",
+    "reported_idn": "KEITHLEY INSTRUMENTS INC.,MODEL 2400,4043510,C32   Oct  4 2010 14:20:11/A02  /T/K",
+    "vendor": "KEITHLEY INSTRUMENTS INC.",
+    "model": "2400",
+    "serial": "4043510",
+    "firmware": "C32   Oct  4 2010 14:20:11/A02  /T/K",
+    "runtime_class": "Keithley2400",
+    "runtime_gpib_address": "GPIB0::7::INSTR",
+    "runtime_resource_name": "GPIB0::7::INSTR"
+  },
+  "parameters": {
+    "voltage_min_v": -1.0,
+    "voltage_max_v": 10.0,
+    "voltage_step_v": 0.1,
+    "compliance_current_a": 1.0,
+    "collection_time_ms": 10,
+    "nplc": "1",
+    "current_range_setting": "Auto-range",
+    "n_runs_requested": 2,
+    "initial_sweep_direction": "positive_first",
+    "polarity_compliance_neg_enabled": true,
+    "polarity_compliance_pos_enabled": false,
+    "initial_active_compliance_a": 1.0,
+    "final_active_compliance_a": 1
+  },
+  "progress": {
+    "estimated_total_steps": 222,
+    "completed_steps": 41,
+    "remaining_runs_counter": 2
+  },
+  "sample_name_at_save": "littlel_1",
+  "saved_at": "2026-06-10T12:20:24",
+  "measurement_count": 41,
+  "data_columns": [
+    "Voltage",
+    "Current",
+    "Direction",
+    "Timestamp",
+    "Nruns"
+  ],
+  "data_file": "D:/Iurii/9D66P1\\2026-06-10\\littlel_1\\data\\VAC_littlel_1_-1.0V_10.0V_10ms_2026-06-10 12-20-16.data",
+  "metadata_file": "D:/Iurii/9D66P1\\2026-06-10\\littlel_1\\data\\VAC_littlel_1_-1.0V_10.0V_10ms_2026-06-10 12-20-16.meta.json"
+}
