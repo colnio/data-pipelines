@@ -145,161 +145,26 @@ def _handle_notebook_family(
     family: str,
     raw_dir: Path,
 ) -> dict:
-    """Execute the appropriate notebook, insert artifacts, transition states."""
-    from labdata.notebook_runner import run_processing
-    from labdata.seed import area_um2_for_device, _DEFAULT_THICKNESS_NM, _DEFAULT_AREA_UM2_BY_SIZE
+    """
+    Record a device-level parse result and transition parsing → validated.
 
-    out_dir = (
-        Path(labdata_root)
-        / "processed"
-        / run_id
-        / f"analysis_version_{ANALYSIS_VERSION:03d}"
-    )
-    out_dir.mkdir(parents=True, exist_ok=True)
+    For CV/CF and VAC/IV device runs the actual analysis now happens at the
+    session level via handle_process_session.  This handler records the device
+    data is present (parser_results status='ok') and stops at 'validated'.
+    Review and notification are deferred to the session processor.
+    """
+    # Record that the device data was ingested
+    _insert_notebook_parser_results(conn, run_id, family, {})
 
-    # ------------------------------------------------------------------
-    # Resolve processing params
-    # ------------------------------------------------------------------
-    proc_params = dbmod.load_processing_params(conn, sample_id)
-    if proc_params:
-        thickness_nm = proc_params.get("thickness_nm", _DEFAULT_THICKNESS_NM)
-        area_map = proc_params.get("area_um2_by_size", _DEFAULT_AREA_UM2_BY_SIZE)
-    else:
-        thickness_nm = _DEFAULT_THICKNESS_NM
-        area_map = _DEFAULT_AREA_UM2_BY_SIZE
-
-    area_um2 = area_um2_for_device(device_id, area_map)
-
-    # For iv_breakdown, data files live directly in raw_dir/data/ or raw_dir/
-    # For impedance_cv_cf, CSVs live in <run_subdir>/data/
-    if family == "iv_breakdown":
-        data_dir = _find_data_dir(raw_dir)
-    else:
-        # The run subdirectory contains data/ with cf/cv CSVs
-        data_dir = _find_impedance_data_dir(raw_dir)
-
-    notebook_path = str(_NOTEBOOKS_DIR / f"{family}.ipynb")
-
-    params = {
-        "run_id": run_id,
-        "data_dir": str(data_dir),
-        "out_dir": str(out_dir),
-        "area_um2": area_um2,
-        "thickness_nm": thickness_nm,
-        "device_id": device_id,
-    }
-
-    # ------------------------------------------------------------------
-    # Execute notebook via papermill
-    # ------------------------------------------------------------------
-    try:
-        nb_result = run_processing(family, params, notebook_path, str(out_dir))
-    except Exception as exc:
-        _transition(conn, run_id, "parsing", "parser_failed", worker_id,
-                    f"pipeline-a: notebook execution failed: {exc}")
-        return {"status": "parser_failed", "error": str(exc)}
-
-    plots = nb_result["plots"]
-    executed_nb = nb_result["notebook"]
-    metrics = nb_result["metrics"]
-
-    if not metrics:
-        metrics = {}
-
-    # ------------------------------------------------------------------
-    # DB inserts: analysis_artifacts
-    # ------------------------------------------------------------------
-    for png_path in plots:
-        sha = _sha256_file(Path(png_path))
-        _insert_analysis_artifact(conn, run_id, ANALYSIS_VERSION, "plot", png_path, sha)
-
-    nb_sha = _sha256_file(Path(executed_nb))
-    _insert_analysis_artifact(conn, run_id, ANALYSIS_VERSION, "notebook", executed_nb, nb_sha)
-
-    # parser_results row (minimal — no parsed columns for notebook path)
-    _insert_notebook_parser_results(conn, run_id, family, metrics)
-
-    # review_artifacts
-    _insert_review_artifacts(
-        conn, run_id,
-        metrics_json=metrics,
-        plots_json=plots,
-        parser_warnings_json=[],
-        llm_summary="",
-    )
-
-    # ------------------------------------------------------------------
-    # State transitions: parsing → validated → processing → awaiting_review
-    # ------------------------------------------------------------------
+    # Transition: parsing → validated (stop here; session processor handles the rest)
     _transition(conn, run_id, "parsing", "validated", worker_id,
-                "pipeline-a: notebook parse succeeded")
-    _transition(conn, run_id, "validated", "processing", worker_id,
-                "pipeline-a: computing metrics")
-    _transition(conn, run_id, "processing", "awaiting_review", worker_id,
-                "pipeline-a: review artifacts written")
-
-    # ------------------------------------------------------------------
-    # Enqueue send_notification job
-    # ------------------------------------------------------------------
-    notif_payload_base = {
-        "event_type": "awaiting_review",
-        "run_id": run_id,
-        "message": f"Run {run_id} ready for review ({measurement_type})",
-        "photo_paths": plots,
-    }
-    try:
-        notif_id = dbmod.insert_notification(conn, "awaiting_review", run_id, notif_payload_base)
-        notif_payload = dict(notif_payload_base)
-        notif_payload["notification_id"] = notif_id
-        dbmod.enqueue_job(
-            conn,
-            "send_notification",
-            run_id,
-            f"notify:awaiting_review:{run_id}",
-            notif_payload,
-        )
-    except Exception:
-        # Notification enqueue failure is non-fatal — run is already awaiting_review
-        pass
+                f"pipeline-a: device data recorded ({family}); awaiting session review")
 
     return {
-        "status": "awaiting_review",
-        "metrics": metrics,
-        "plots": plots,
-        "notebook": executed_nb,
+        "status": "validated",
+        "run_id": run_id,
+        "family": family,
     }
-
-
-def _find_data_dir(raw_dir: Path) -> Path:
-    """
-    Locate the data directory for VAC/IV runs.
-    Checks raw_dir/data/ then raw_dir itself.
-    """
-    data_subdir = raw_dir / "data"
-    if data_subdir.is_dir():
-        return data_subdir
-    return raw_dir
-
-
-def _find_impedance_data_dir(raw_dir: Path) -> Path:
-    """
-    Locate the data/ directory for impedance runs.
-    The structure is: raw_dir/<device>_run_<date>/data/*.csv
-    Falls back to raw_dir/data/ or raw_dir.
-    """
-    # Look for a run subdirectory containing a data/ folder
-    for sub in raw_dir.iterdir():
-        if sub.is_dir():
-            data_sub = sub / "data"
-            if data_sub.is_dir():
-                cf_files = list(data_sub.glob("*cf*.csv")) + list(data_sub.glob("*cv*.csv"))
-                if cf_files:
-                    return data_sub
-    # Fallback
-    data_subdir = raw_dir / "data"
-    if data_subdir.is_dir():
-        return data_subdir
-    return raw_dir
 
 
 # ---------------------------------------------------------------------------
@@ -518,6 +383,25 @@ def _handle_parse_failure(
         pass
 
 
+def _sanitize_metrics_for_json(d: dict) -> dict:
+    """
+    Replace float NaN / Inf with None so json.dumps() produces valid JSON
+    that PostgreSQL accepts as jsonb.
+    """
+    import math
+
+    def _clean(v):
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            return None
+        if isinstance(v, dict):
+            return {k: _clean(vv) for k, vv in v.items()}
+        if isinstance(v, list):
+            return [_clean(vv) for vv in v]
+        return v
+
+    return {k: _clean(v) for k, v in d.items()}
+
+
 def _insert_notebook_parser_results(
     conn: psycopg.Connection,
     run_id: str,
@@ -525,6 +409,7 @@ def _insert_notebook_parser_results(
     metrics_dict: dict,
 ) -> None:
     """Insert a parser_results row for notebook-executed families."""
+    safe_metrics = _sanitize_metrics_for_json(metrics_dict)
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -541,7 +426,7 @@ def _insert_notebook_parser_results(
                 None,
                 0,
                 json.dumps([]),
-                json.dumps(metrics_dict),
+                json.dumps(safe_metrics),
             ),
         )
 

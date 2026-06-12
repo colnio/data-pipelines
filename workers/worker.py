@@ -27,9 +27,10 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from labdata import db as dbmod
 from labdata.pipeline import handle_parse_run
+from labdata.process_session import handle_process_session
 
 POLL_INTERVAL = 2.0   # seconds between polls when queue is empty
-JOB_TYPES = ["parse_run"]
+JOB_TYPES = ["parse_run", "process_session"]
 
 
 def main() -> None:
@@ -72,7 +73,13 @@ def main() -> None:
                   f"run={job['run_id']}", flush=True)
 
             try:
-                result = handle_parse_run(conn, job, labdata_root, worker_id)
+                job_type = job["job_type"]
+                if job_type == "parse_run":
+                    result = handle_parse_run(conn, job, labdata_root, worker_id)
+                elif job_type == "process_session":
+                    result = handle_process_session(conn, job, labdata_root, worker_id)
+                else:
+                    raise ValueError(f"unknown job_type: {job_type!r}")
                 dbmod.complete_job(conn, job_id, result)
                 print(f"[worker] job {job_id} succeeded: {result.get('status')}", flush=True)
             except Exception as exc:
