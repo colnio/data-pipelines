@@ -6,9 +6,11 @@ package run
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -216,20 +218,90 @@ func (r *Repo) Transitions(ctx context.Context, runID string) ([]domain.RunState
 
 // ListFilter narrows a run listing for the browse/search UI (architecture §19).
 type ListFilter struct {
+	// Existing filters (additive — do not remove).
 	State           string
 	SampleID        string
 	DeviceID        string
 	MeasurementType string
 	AgentID         string
 	Limit           int
+
+	// New filters added for keyset pagination and richer search.
+	ConditionLabel   string    // filter by condition_labels.canonical_name
+	DeclaredAfter    time.Time // declared_at >= this value (zero = absent)
+	DeclaredBefore   time.Time // declared_at <= this value (zero = absent)
+	PublicationStatus string   // "published" | "unpublished" | "" (absent)
+	Cursor           string    // opaque keyset cursor (base64 of declaredAt|id)
 }
 
-// List returns runs newest-first matching the filter.
-func (r *Repo) List(ctx context.Context, f ListFilter) ([]domain.Run, error) {
+// EncodeCursor encodes a declared_at timestamp and a run id into an opaque,
+// URL-safe base64 cursor. Format: base64(RFC3339Nano + "|" + id).
+func EncodeCursor(declaredAt time.Time, id string) string {
+	raw := declaredAt.UTC().Format(time.RFC3339Nano) + "|" + id
+	return base64.RawURLEncoding.EncodeToString([]byte(raw))
+}
+
+// decodeCursor parses a cursor produced by EncodeCursor.
+func decodeCursor(cursor string) (declaredAt time.Time, id string, err error) {
+	b, decErr := base64.RawURLEncoding.DecodeString(cursor)
+	if decErr != nil {
+		return time.Time{}, "", fmt.Errorf("invalid cursor: %w", decErr)
+	}
+	parts := strings.SplitN(string(b), "|", 2)
+	if len(parts) != 2 {
+		return time.Time{}, "", fmt.Errorf("invalid cursor format")
+	}
+	t, parseErr := time.Parse(time.RFC3339Nano, parts[0])
+	if parseErr != nil {
+		return time.Time{}, "", fmt.Errorf("invalid cursor timestamp: %w", parseErr)
+	}
+	return t, parts[1], nil
+}
+
+// List returns runs newest-first (declared_at DESC, id DESC) matching the
+// filter. Returns the slice, an opaque next_cursor (non-empty only when a full
+// page was returned), and any error.
+func (r *Repo) List(ctx context.Context, f ListFilter) ([]domain.Run, string, error) {
 	limit := f.Limit
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
+
+	// Keyset pagination: decode cursor when provided.
+	var cursorAt time.Time
+	var cursorID string
+	if f.Cursor != "" {
+		var cerr error
+		cursorAt, cursorID, cerr = decodeCursor(f.Cursor)
+		if cerr != nil {
+			return nil, "", fmt.Errorf("list runs: %w", cerr)
+		}
+	}
+
+	// Nullable timestamp args: pass nil (pgx treats nil as NULL) for zero times.
+	var afterArg, beforeArg interface{}
+	if !f.DeclaredAfter.IsZero() {
+		afterArg = f.DeclaredAfter
+	}
+	if !f.DeclaredBefore.IsZero() {
+		beforeArg = f.DeclaredBefore
+	}
+
+	// Build publication_status conditions inline via string matching on state.
+	// We express this as: published → state = 'published';
+	//                      unpublished → state <> 'published';
+	//                      else → no constraint.
+	// We pass the status string and handle it with a CASE expression.
+	pubStatus := f.PublicationStatus // "published" | "unpublished" | ""
+
+	// Cursor clause: when a cursor is present, restrict to rows older than the
+	// cursor position.
+	var cursorAtArg interface{}
+	cursorIDArg := cursorID
+	if !cursorAt.IsZero() {
+		cursorAtArg = cursorAt
+	}
+
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, manifest_hash, agent_id, measurement_type, completion_source,
 		       sample_id, device_id, contact_config_id, meas_path, operator_comment,
@@ -240,22 +312,53 @@ func (r *Repo) List(ctx context.Context, f ListFilter) ([]domain.Run, error) {
 		  AND ($3 = '' OR device_id = $3)
 		  AND ($4 = '' OR measurement_type = $4)
 		  AND ($5 = '' OR agent_id = $5)
-		ORDER BY declared_at DESC, created_at DESC
-		LIMIT $6`,
-		f.State, f.SampleID, f.DeviceID, f.MeasurementType, f.AgentID, limit)
+		  AND ($6 = '' OR EXISTS (
+		        SELECT 1 FROM run_condition_labels rcl
+		        JOIN condition_labels cl ON cl.id = rcl.condition_label_id
+		        WHERE rcl.run_id = runs.id AND cl.canonical_name = $6
+		  ))
+		  AND ($7::timestamptz IS NULL OR declared_at >= $7)
+		  AND ($8::timestamptz IS NULL OR declared_at <= $8)
+		  AND ($9 = '' OR (
+		        CASE $9
+		          WHEN 'published'   THEN state = 'published'
+		          WHEN 'unpublished' THEN state <> 'published'
+		          ELSE true
+		        END
+		  ))
+		  AND ($10::timestamptz IS NULL OR (declared_at, id) < ($10, $11))
+		ORDER BY declared_at DESC, id DESC
+		LIMIT $12`,
+		f.State, f.SampleID, f.DeviceID, f.MeasurementType, f.AgentID,
+		f.ConditionLabel,
+		afterArg, beforeArg,
+		pubStatus,
+		cursorAtArg, cursorIDArg,
+		limit+1,
+	)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	defer rows.Close()
 	var out []domain.Run
 	for rows.Next() {
 		run, err := scanRun(rows)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		out = append(out, run)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, "", err
+	}
+
+	var nextCursor string
+	if len(out) > limit {
+		out = out[:limit]
+		last := out[len(out)-1]
+		nextCursor = EncodeCursor(last.DeclaredAt, last.ID)
+	}
+	return out, nextCursor, nil
 }
 
 // ── internal scan helpers ────────────────────────────────────────────────────

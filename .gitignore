@@ -41,3 +41,6 @@ build/
 # Playwright MCP artifacts
 .playwright-mcp/
 e2e-*.png
+
+# Local design-preview screenshots
+design-shots/

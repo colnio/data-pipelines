@@ -54,6 +54,12 @@ type Config struct {
 	// MaxArchiveBytes rejects archives larger than this (zip/tar-bomb guard).
 	MaxArchiveBytes int64
 
+	// ── JupyterHub integration (architecture §18) ─────────────────────────
+	// JupyterHubURL is the base URL of the JupyterHub instance. The admin
+	// token is never logged.
+	JupyterHubURL        string
+	JupyterHubAdminToken string
+
 	// ── Notifications ──────────────────────────────────────────────────────
 	SMTPHost         string
 	SMTPPort         string
@@ -83,11 +89,13 @@ func Load() (*Config, error) {
 		MaxConcurrentPulls: getint("MAX_CONCURRENT_PULLS", 2),
 		PullTimeout:        getdur("PULL_TIMEOUT", 30*time.Minute),
 		MaxArchiveBytes:    getint64("MAX_ARCHIVE_BYTES", 50<<30), // 50 GiB
-		SMTPHost:           getenv("SMTP_HOST", "localhost"),
-		SMTPPort:           getenv("SMTP_PORT", "1025"),
-		SMTPFrom:           getenv("SMTP_FROM", "no-reply@lab.local"),
-		TelegramBotToken:   getenv("TELEGRAM_BOT_TOKEN", ""),
-		LabTimezone:        getenv("LAB_TIMEZONE", "Asia/Singapore"),
+		JupyterHubURL:        getenv("JUPYTERHUB_URL", "http://localhost:8000"),
+		JupyterHubAdminToken: getenv("JUPYTERHUB_ADMIN_TOKEN", ""),
+		SMTPHost:             getenv("SMTP_HOST", "localhost"),
+		SMTPPort:             getenv("SMTP_PORT", "1025"),
+		SMTPFrom:             getenv("SMTP_FROM", "no-reply@lab.local"),
+		TelegramBotToken:     getenv("TELEGRAM_BOT_TOKEN", ""),
+		LabTimezone:          getenv("LAB_TIMEZONE", "Asia/Singapore"),
 	}
 	c.AllowedEmailDomains = splitCSV(getenv("ALLOWED_EMAIL_DOMAINS", "nus.edu.sg,u.nus.edu"))
 

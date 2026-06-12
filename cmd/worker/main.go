@@ -18,6 +18,7 @@ import (
 	"github.com/colnio/data-pipelines/internal/domain"
 	"github.com/colnio/data-pipelines/internal/ingest"
 	"github.com/colnio/data-pipelines/internal/jobs"
+	"github.com/colnio/data-pipelines/internal/notify"
 	"github.com/colnio/data-pipelines/internal/review"
 	"github.com/colnio/data-pipelines/internal/run"
 	"github.com/colnio/data-pipelines/internal/transfer"
@@ -80,6 +81,11 @@ func runWorker() error {
 		handlers[t] = h
 	}
 	for t, h := range reviewSvc.Handlers() {
+		handlers[t] = h
+	}
+	// Telegram notification sender (send_notification jobs).
+	notifySvc := notify.NewService(pool, cfg, queue, logger)
+	for t, h := range notifySvc.Handlers() {
 		handlers[t] = h
 	}
 

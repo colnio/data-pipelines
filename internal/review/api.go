@@ -12,6 +12,7 @@ import (
 
 	"github.com/colnio/data-pipelines/internal/domain"
 	"github.com/colnio/data-pipelines/internal/jobs"
+	"github.com/colnio/data-pipelines/internal/notify"
 	"github.com/colnio/data-pipelines/internal/platform"
 	"github.com/colnio/data-pipelines/internal/run"
 	"github.com/colnio/data-pipelines/internal/statemachine"
@@ -128,7 +129,7 @@ func (s *Service) handleList(ctx context.Context, in *reviewListInput) (*reviewL
 		limit = 50
 	}
 
-	runs, err := s.runs.List(ctx, run.ListFilter{
+	runs, _, err := s.runs.List(ctx, run.ListFilter{
 		State: string(domain.StateAwaitingReview),
 		Limit: limit,
 	})
@@ -364,6 +365,9 @@ func (s *Service) handleQuarantine(ctx context.Context, in *reviewQuarantineInpu
 	if err != nil {
 		return nil, err
 	}
+
+	// Best-effort notification; never fail the primary action.
+	_ = notify.Enqueue(ctx, s.queue, s.pool, "quarantined", in.RunID, "Run "+in.RunID+" quarantined", nil)
 
 	out := &reviewQuarantineOutput{}
 	out.Body.RunID = in.RunID

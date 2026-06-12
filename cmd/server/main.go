@@ -19,12 +19,17 @@ import (
 
 	"github.com/joho/godotenv"
 
+	"github.com/colnio/data-pipelines/internal/admin"
 	"github.com/colnio/data-pipelines/internal/agentauth"
 	"github.com/colnio/data-pipelines/internal/auth"
+	"github.com/colnio/data-pipelines/internal/catalog"
 	"github.com/colnio/data-pipelines/internal/config"
 	"github.com/colnio/data-pipelines/internal/db"
+	"github.com/colnio/data-pipelines/internal/fileserve"
 	"github.com/colnio/data-pipelines/internal/ingest"
 	"github.com/colnio/data-pipelines/internal/jobs"
+	"github.com/colnio/data-pipelines/internal/jupyter"
+	"github.com/colnio/data-pipelines/internal/notify"
 	"github.com/colnio/data-pipelines/internal/platform"
 	"github.com/colnio/data-pipelines/internal/review"
 	"github.com/colnio/data-pipelines/internal/run"
@@ -93,6 +98,15 @@ func runServer() error {
 	run.Register(srv.API, runRepo)
 	ingest.Register(srv.API, ingestSvc)
 	review.Register(srv.API, reviewSvc)
+
+	// ── Browse, admin, integrations (added with the key-functionality work) ──
+	catalog.Register(srv.API, catalog.NewService(pool))
+	admin.Register(srv.API, admin.NewService(pool, authSvc, agentSvc))
+	notify.Register(srv.API, notify.NewService(pool, cfg, queue, logger))
+	jupyter.Register(srv.API, jupyter.NewService(cfg, logger))
+	// fileserve streams binary artifacts/raw files; it mounts raw chi routes
+	// (not huma) on the same router so the AuthResolver middleware still runs.
+	fileserve.Register(srv.Router, fileserve.NewService(pool, runRepo, cfg))
 
 	httpSrv := &http.Server{
 		Addr:              ":" + cfg.Port,

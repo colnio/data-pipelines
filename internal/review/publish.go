@@ -9,6 +9,7 @@ import (
 
 	"github.com/colnio/data-pipelines/internal/domain"
 	"github.com/colnio/data-pipelines/internal/jobs"
+	"github.com/colnio/data-pipelines/internal/notify"
 	"github.com/colnio/data-pipelines/internal/statemachine"
 )
 
@@ -91,6 +92,9 @@ func (s *Service) handlePublish(ctx context.Context, job domain.Job) (json.RawMe
 	if err != nil {
 		return nil, mapSMErr(err)
 	}
+
+	// Best-effort notification after successful publish; never fail the job.
+	_ = notify.Enqueue(ctx, s.queue, s.pool, "published", runID, "Run "+runID+" published", nil)
 
 	r, _ := json.Marshal(publishResult{RunID: runID, PublishedResultID: publishedID})
 	return r, nil

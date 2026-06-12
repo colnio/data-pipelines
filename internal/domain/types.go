@@ -5,6 +5,39 @@ import (
 	"time"
 )
 
+// Sample mirrors v_samples: the physical/material stack identity (architecture §7).
+type Sample struct {
+	ID               string          `json:"id"`
+	MaterialStack    *string         `json:"material_stack,omitempty"`
+	Dielectric       json.RawMessage `json:"dielectric,omitempty"`
+	FabricationBatch *string         `json:"fabrication_batch,omitempty"`
+	ParamsJSON       json.RawMessage `json:"params_json,omitempty"`
+	Notes            *string         `json:"notes,omitempty"`
+	CreatedAt        time.Time       `json:"created_at"`
+}
+
+// Device mirrors v_devices: the physical measured part (architecture §7).
+type Device struct {
+	ID             string    `json:"id"`
+	SampleID       *string   `json:"sample_id,omitempty"`
+	DeviceClass    string    `json:"device_class"`
+	FabricationID  *string   `json:"fabrication_id,omitempty"`
+	LifecycleState *string   `json:"lifecycle_state,omitempty"`
+	Notes          *string   `json:"notes,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// ContactConfig mirrors v_contact_configs: the terminal pairing and active
+// geometry (architecture §7; L/W belong here, not on device or run).
+type ContactConfig struct {
+	ID                 string          `json:"id"`
+	DeviceID           *string         `json:"device_id,omitempty"`
+	TerminalRolesJSON  json.RawMessage `json:"terminal_roles_json,omitempty"`
+	IsDefault          bool            `json:"is_default"`
+	Notes              *string         `json:"notes,omitempty"`
+	CreatedAt          time.Time       `json:"created_at"`
+}
+
 // Run mirrors the runs table: one declared measurement event (§7). Structural
 // truth (sample/device/contact_config) is referenced by ID; the manifest hash
 // freezes the declared file set.
