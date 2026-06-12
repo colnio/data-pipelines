@@ -4,16 +4,16 @@ labdata.pipeline — parse_run job handler (Pipeline-A, architecture §17).
 Flow per job:
   1. Load run row + manifest (latest by created_at) + raw-file directory.
   2. Transition: current → 'parsing'  (tolerates 'promoted' or 'needs_metadata').
-  3. Parse + validate the primary data file with the appropriate parser.
-  4. On validation failure → transition to 'parser_failed', fail the job.
-  5. On success:
-       a. Render I-V plot PNG → LABDATA_ROOT/processed/<run_id>/analysis_version_001/transfer.png
-       b. SHA-256 the plot.
-       c. INSERT parser_results row.
-       d. INSERT analysis_artifacts row (the plot).
-       e. INSERT review_artifacts row (metrics + plot path + warnings).
-       f. Transition parsing → validated → processing → awaiting_review.
-       g. Complete the job.
+  3. Route by measurement family:
+       - VAC/IV/breakdown  → notebook iv_breakdown (papermill)
+       - cv/cf/impedance   → notebook impedance_cv_cf (papermill)
+       - fet_transfer       → existing Python path (UNCHANGED)
+  4. On success:
+       a. INSERT analysis_artifacts rows (plots + notebook).
+       b. INSERT review_artifacts row.
+       c. Transition parsing → validated → processing → awaiting_review.
+       d. Insert notification + enqueue send_notification job.
+       e. Complete the job.
 
 State transitions use transition_run() exclusively (never direct UPDATE).
 """
@@ -39,6 +39,9 @@ from labdata.parsers import fet_transfer
 WORKER_ACTOR_TYPE = "worker"
 PARSER_VERSION = fet_transfer.PARSER_VERSION
 ANALYSIS_VERSION = 1
+
+# Path to the notebooks directory (sibling of labdata/)
+_NOTEBOOKS_DIR = Path(__file__).parent.parent / "notebooks"
 
 
 # ---------------------------------------------------------------------------
@@ -75,12 +78,247 @@ def handle_parse_run(
 
     # ------------------------------------------------------------------
     # 2. Transition current_state → 'parsing'
-    #    Allowed: promoted → parsing  OR  needs_metadata → parsing
-    #    We pass expected_from='' so transition_run accepts either.
     # ------------------------------------------------------------------
-    current_state = run["state"]
     _transition(conn, run_id, "", "parsing", worker_id,
                 "pipeline-a: starting parse_run job")
+
+    # ------------------------------------------------------------------
+    # 3. Route by measurement family
+    # ------------------------------------------------------------------
+    family = _detect_family(measurement_type, files_list)
+
+    if family in ("iv_breakdown", "impedance_cv_cf"):
+        return _handle_notebook_family(
+            conn, job, labdata_root, worker_id,
+            run_id, sample_id, device_id, measurement_type, family, raw_dir,
+        )
+    else:
+        return _handle_fet_transfer(
+            conn, job, labdata_root, worker_id,
+            run_id, sample_id, device_id, measurement_type, files_list, raw_dir,
+        )
+
+
+# ---------------------------------------------------------------------------
+# Family detection
+# ---------------------------------------------------------------------------
+
+def _detect_family(measurement_type: str, files_list: list) -> str:
+    """
+    Return the processing family name based on measurement_type and files.
+
+      'iv_breakdown'     — measurement_type contains VAC / IV / breakdown
+      'impedance_cv_cf'  — measurement_type or filenames contain cv/cf/impedance
+      'fet_transfer'     — everything else
+    """
+    mt_lower = measurement_type.lower()
+
+    if any(kw in mt_lower for kw in ("vac", "iv", "breakdown")):
+        return "iv_breakdown"
+
+    # Check for cv/cf/impedance in measurement_type or file names
+    file_names = " ".join(
+        (f.get("name", "") if isinstance(f, dict) else str(f)).lower()
+        for f in files_list
+    )
+    if any(kw in mt_lower for kw in ("cv", "cf", "impedance")):
+        return "impedance_cv_cf"
+    if any(kw in file_names for kw in ("_cv_", "_cf_", "impedance")):
+        return "impedance_cv_cf"
+
+    return "fet_transfer"
+
+
+# ---------------------------------------------------------------------------
+# Notebook-based handler (iv_breakdown and impedance_cv_cf)
+# ---------------------------------------------------------------------------
+
+def _handle_notebook_family(
+    conn: psycopg.Connection,
+    job: dict,
+    labdata_root: str,
+    worker_id: str,
+    run_id: str,
+    sample_id: str,
+    device_id: str,
+    measurement_type: str,
+    family: str,
+    raw_dir: Path,
+) -> dict:
+    """Execute the appropriate notebook, insert artifacts, transition states."""
+    from labdata.notebook_runner import run_processing
+    from labdata.seed import area_um2_for_device, _DEFAULT_THICKNESS_NM, _DEFAULT_AREA_UM2_BY_SIZE
+
+    out_dir = (
+        Path(labdata_root)
+        / "processed"
+        / run_id
+        / f"analysis_version_{ANALYSIS_VERSION:03d}"
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # ------------------------------------------------------------------
+    # Resolve processing params
+    # ------------------------------------------------------------------
+    proc_params = dbmod.load_processing_params(conn, sample_id)
+    if proc_params:
+        thickness_nm = proc_params.get("thickness_nm", _DEFAULT_THICKNESS_NM)
+        area_map = proc_params.get("area_um2_by_size", _DEFAULT_AREA_UM2_BY_SIZE)
+    else:
+        thickness_nm = _DEFAULT_THICKNESS_NM
+        area_map = _DEFAULT_AREA_UM2_BY_SIZE
+
+    area_um2 = area_um2_for_device(device_id, area_map)
+
+    # For iv_breakdown, data files live directly in raw_dir/data/ or raw_dir/
+    # For impedance_cv_cf, CSVs live in <run_subdir>/data/
+    if family == "iv_breakdown":
+        data_dir = _find_data_dir(raw_dir)
+    else:
+        # The run subdirectory contains data/ with cf/cv CSVs
+        data_dir = _find_impedance_data_dir(raw_dir)
+
+    notebook_path = str(_NOTEBOOKS_DIR / f"{family}.ipynb")
+
+    params = {
+        "run_id": run_id,
+        "data_dir": str(data_dir),
+        "out_dir": str(out_dir),
+        "area_um2": area_um2,
+        "thickness_nm": thickness_nm,
+        "device_id": device_id,
+    }
+
+    # ------------------------------------------------------------------
+    # Execute notebook via papermill
+    # ------------------------------------------------------------------
+    try:
+        nb_result = run_processing(family, params, notebook_path, str(out_dir))
+    except Exception as exc:
+        _transition(conn, run_id, "parsing", "parser_failed", worker_id,
+                    f"pipeline-a: notebook execution failed: {exc}")
+        return {"status": "parser_failed", "error": str(exc)}
+
+    plots = nb_result["plots"]
+    executed_nb = nb_result["notebook"]
+    metrics = nb_result["metrics"]
+
+    if not metrics:
+        metrics = {}
+
+    # ------------------------------------------------------------------
+    # DB inserts: analysis_artifacts
+    # ------------------------------------------------------------------
+    for png_path in plots:
+        sha = _sha256_file(Path(png_path))
+        _insert_analysis_artifact(conn, run_id, ANALYSIS_VERSION, "plot", png_path, sha)
+
+    nb_sha = _sha256_file(Path(executed_nb))
+    _insert_analysis_artifact(conn, run_id, ANALYSIS_VERSION, "notebook", executed_nb, nb_sha)
+
+    # parser_results row (minimal — no parsed columns for notebook path)
+    _insert_notebook_parser_results(conn, run_id, family, metrics)
+
+    # review_artifacts
+    _insert_review_artifacts(
+        conn, run_id,
+        metrics_json=metrics,
+        plots_json=plots,
+        parser_warnings_json=[],
+        llm_summary="",
+    )
+
+    # ------------------------------------------------------------------
+    # State transitions: parsing → validated → processing → awaiting_review
+    # ------------------------------------------------------------------
+    _transition(conn, run_id, "parsing", "validated", worker_id,
+                "pipeline-a: notebook parse succeeded")
+    _transition(conn, run_id, "validated", "processing", worker_id,
+                "pipeline-a: computing metrics")
+    _transition(conn, run_id, "processing", "awaiting_review", worker_id,
+                "pipeline-a: review artifacts written")
+
+    # ------------------------------------------------------------------
+    # Enqueue send_notification job
+    # ------------------------------------------------------------------
+    notif_payload_base = {
+        "event_type": "awaiting_review",
+        "run_id": run_id,
+        "message": f"Run {run_id} ready for review ({measurement_type})",
+        "photo_paths": plots,
+    }
+    try:
+        notif_id = dbmod.insert_notification(conn, "awaiting_review", run_id, notif_payload_base)
+        notif_payload = dict(notif_payload_base)
+        notif_payload["notification_id"] = notif_id
+        dbmod.enqueue_job(
+            conn,
+            "send_notification",
+            run_id,
+            f"notify:awaiting_review:{run_id}",
+            notif_payload,
+        )
+    except Exception:
+        # Notification enqueue failure is non-fatal — run is already awaiting_review
+        pass
+
+    return {
+        "status": "awaiting_review",
+        "metrics": metrics,
+        "plots": plots,
+        "notebook": executed_nb,
+    }
+
+
+def _find_data_dir(raw_dir: Path) -> Path:
+    """
+    Locate the data directory for VAC/IV runs.
+    Checks raw_dir/data/ then raw_dir itself.
+    """
+    data_subdir = raw_dir / "data"
+    if data_subdir.is_dir():
+        return data_subdir
+    return raw_dir
+
+
+def _find_impedance_data_dir(raw_dir: Path) -> Path:
+    """
+    Locate the data/ directory for impedance runs.
+    The structure is: raw_dir/<device>_run_<date>/data/*.csv
+    Falls back to raw_dir/data/ or raw_dir.
+    """
+    # Look for a run subdirectory containing a data/ folder
+    for sub in raw_dir.iterdir():
+        if sub.is_dir():
+            data_sub = sub / "data"
+            if data_sub.is_dir():
+                cf_files = list(data_sub.glob("*cf*.csv")) + list(data_sub.glob("*cv*.csv"))
+                if cf_files:
+                    return data_sub
+    # Fallback
+    data_subdir = raw_dir / "data"
+    if data_subdir.is_dir():
+        return data_subdir
+    return raw_dir
+
+
+# ---------------------------------------------------------------------------
+# FET transfer handler (UNCHANGED logic)
+# ---------------------------------------------------------------------------
+
+def _handle_fet_transfer(
+    conn: psycopg.Connection,
+    job: dict,
+    labdata_root: str,
+    worker_id: str,
+    run_id: str,
+    sample_id: str,
+    device_id: str,
+    measurement_type: str,
+    files_list: list,
+    raw_dir: Path,
+) -> dict:
+    """Original Pipeline-A handler for FET transfer curves."""
 
     # ------------------------------------------------------------------
     # 3. Parse the primary data file
@@ -278,6 +516,34 @@ def _handle_parse_failure(
     except Exception:
         # If transition fails (e.g. already in wrong state), don't mask original error.
         pass
+
+
+def _insert_notebook_parser_results(
+    conn: psycopg.Connection,
+    run_id: str,
+    family: str,
+    metrics_dict: dict,
+) -> None:
+    """Insert a parser_results row for notebook-executed families."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO parser_results
+                (run_id, parser_version, status, columns_expected,
+                 rows_declared, rows_actual, warnings_json, output_json)
+            VALUES (%s, %s, %s, %s, %s, %s, %s::jsonb, %s::jsonb)
+            """,
+            (
+                run_id,
+                f"notebook_{family}_v1.0",
+                "ok",
+                0,           # not applicable for notebooks
+                None,
+                0,
+                json.dumps([]),
+                json.dumps(metrics_dict),
+            ),
+        )
 
 
 def _insert_parser_results(

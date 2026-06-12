@@ -17,5 +17,8 @@ duckdb==1.5.3
 # pytz required by duckdb's postgres extension for timestamptz columns
 pytz>=2023.3
 
+# Notebook execution
+papermill>=2.6.0
+
 # Testing
 pytest==9.0.3

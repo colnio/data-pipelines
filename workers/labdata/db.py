@@ -253,3 +253,87 @@ def transition(
         if "illegal_transition" in msg:
             raise IllegalTransition(msg) from exc
         raise
+
+
+# ---------------------------------------------------------------------------
+# Processing parameters
+# ---------------------------------------------------------------------------
+
+def load_processing_params(conn: psycopg.Connection, sample_id: str) -> dict | None:
+    """
+    Return the latest processing_parameter_versions row for this sample, or None.
+
+    The row is expected to have params_json shaped:
+      {"thickness_nm": 2.5, "area_um2_by_size": {"tiny": 6333, ...}}
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT params_json FROM processing_parameter_versions
+            WHERE scope = 'sample' AND scope_key = %s
+            ORDER BY version DESC
+            LIMIT 1
+            """,
+            (sample_id,),
+        )
+        row = cur.fetchone()
+    if row is None:
+        return None
+    return row["params_json"]
+
+
+# ---------------------------------------------------------------------------
+# Notification + job-queue helpers
+# ---------------------------------------------------------------------------
+
+def insert_notification(
+    conn: psycopg.Connection,
+    event_type: str,
+    run_id: str,
+    payload: dict,
+) -> int:
+    """
+    Insert a pending notification row.  Returns the new notification id.
+
+    Shape mirrors Go notify package:
+      INSERT INTO notifications (event_type, channel, target, payload_json, status)
+      VALUES (%s, 'telegram', '', %s::jsonb, 'pending')
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO notifications
+                (event_type, channel, target, payload_json, status)
+            VALUES (%s, 'telegram', '', %s::jsonb, 'pending')
+            RETURNING id
+            """,
+            (event_type, json.dumps(payload)),
+        )
+        row = cur.fetchone()
+    return int(row["id"])
+
+
+def enqueue_job(
+    conn: psycopg.Connection,
+    job_type: str,
+    run_id: str,
+    idempotency_key: str,
+    payload: dict,
+) -> None:
+    """
+    Enqueue a job with ON CONFLICT DO NOTHING on idempotency_key.
+
+    Mirrors Go internal/jobs/queue.go Enqueue():
+      priority=3, max_attempts=5, available_at=now()
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO jobs
+                (job_type, run_id, priority, max_attempts,
+                 available_at, idempotency_key, payload_json)
+            VALUES (%s, %s, 3, 5, now(), %s, %s::jsonb)
+            ON CONFLICT (idempotency_key) DO NOTHING
+            """,
+            (job_type, run_id, idempotency_key, json.dumps(payload)),
+        )

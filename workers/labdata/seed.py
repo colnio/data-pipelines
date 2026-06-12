@@ -54,6 +54,66 @@ def _sanitize(s: Optional[str]) -> str:
     return s
 
 
+# Default processing parameters from sample_output/props
+_DEFAULT_THICKNESS_NM = 2.5
+_DEFAULT_AREA_UM2_BY_SIZE = {
+    "big": 771786.0,
+    "mid": 192180.0,
+    "small": 67400.0,
+    "little": 28508.0,
+    "tiny": 6333.0,
+}
+
+
+def area_um2_for_device(device_id: str, area_map: Optional[dict] = None) -> Optional[float]:
+    """
+    Return area_um2 for a device_id by matching the size prefix.
+
+    device_id like 'tiny_7' → prefix 'tiny' → area_map['tiny'].
+    Falls back to _DEFAULT_AREA_UM2_BY_SIZE if area_map is None.
+    """
+    if area_map is None:
+        area_map = _DEFAULT_AREA_UM2_BY_SIZE
+    if not device_id:
+        return None
+    # Size prefix is the part before the first underscore or digit
+    import re as _re
+    m = _re.match(r"^([a-zA-Z]+)", device_id)
+    if not m:
+        return None
+    prefix = m.group(1).lower()
+    return area_map.get(prefix)
+
+
+def upsert_processing_params(
+    conn: "psycopg.Connection",
+    sample_id: str,
+    thickness_nm: float = _DEFAULT_THICKNESS_NM,
+    area_um2_by_size: Optional[dict] = None,
+    version: int = 1,
+) -> None:
+    """
+    UPSERT a processing_parameter_versions row for a sample.
+
+    params_json shape: {"thickness_nm": 2.5, "area_um2_by_size": {...}}
+    """
+    import json as _json
+    params = {
+        "thickness_nm": thickness_nm,
+        "area_um2_by_size": area_um2_by_size or _DEFAULT_AREA_UM2_BY_SIZE,
+    }
+    conn.execute(
+        """
+        INSERT INTO processing_parameter_versions
+            (scope, scope_key, version, params_json)
+        VALUES ('sample', %s, %s, %s::jsonb)
+        ON CONFLICT (scope, scope_key, version) DO UPDATE
+            SET params_json = EXCLUDED.params_json
+        """,
+        (sample_id, version, _json.dumps(params)),
+    )
+
+
 def _sanitize_or_unknown(s: Optional[str]) -> str:
     if not s:
         return "_unknown"
