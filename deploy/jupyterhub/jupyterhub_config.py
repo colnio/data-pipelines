@@ -44,6 +44,23 @@ _dev_mode = bool(os.environ.get("JUPYTERHUB_DEV"))
 if _dev_mode:
     from jupyterhub.spawner import SimpleLocalProcessSpawner
     c.JupyterHub.spawner_class = SimpleLocalProcessSpawner  # type: ignore[name-defined]
+
+    # SimpleLocalProcessSpawner runs every single-user server as the Hub's own
+    # process user — there are NO per-user OS accounts. LocalAuthenticator.add_user
+    # otherwise refuses to register a Hub user unless a matching system account
+    # exists (or create_system_users is on), which breaks both first browser
+    # login and the API's "Generate connection link" (admin create-user + token).
+    # Treat all users as present in dev so Hub-side user records work without
+    # useradd. Production (TLJH/SystemdSpawner) is unaffected — _dev_mode is off.
+    from jupyterhub.auth import LocalAuthenticator
+    LocalAuthenticator.system_user_exists = lambda self, user: True  # type: ignore[assignment]
+
+    # The dev container runs the Hub — and therefore the SimpleLocalProcessSpawner
+    # single-user servers — as root. Jupyter Server aborts on startup as root
+    # unless --allow-root is passed, which otherwise makes every spawn time out
+    # ("server never showed up"). Production runs servers as real users, so this
+    # only applies in dev.
+    c.Spawner.args = ["--allow-root"]  # type: ignore[name-defined]
 # else: leave spawner_class at its default (DockerSpawner or SystemdSpawner
 # injected by TLJH's config.d — see the commented block at the bottom).
 
@@ -90,6 +107,28 @@ c.JupyterHub.services = [  # type: ignore[name-defined]
         ],
     }
 ]
+
+# ---------------------------------------------------------------------------
+# Admin API service token for the lab-data Go API. This powers the web app's
+# "Generate connection link" (VS Code) flow: the API authenticates to the Hub
+# with this token to ensure the user exists and mint a short-lived per-user
+# token. Set the SAME value as JUPYTERHUB_ADMIN_TOKEN on the API server. The
+# service is only registered when JUPYTERHUB_API_ADMIN_TOKEN is provided, so the
+# default dev Hub is unaffected if you don't use the IDE flow.
+# ---------------------------------------------------------------------------
+_api_admin_token = os.environ.get("JUPYTERHUB_API_ADMIN_TOKEN", "")
+if _api_admin_token:
+    c.JupyterHub.services.append(  # type: ignore[name-defined]
+        {"name": "labdata-api", "api_token": _api_admin_token}
+    )
+    c.JupyterHub.load_roles = [  # type: ignore[name-defined]
+        {
+            "name": "labdata-api-minter",
+            "services": ["labdata-api"],
+            # admin:users -> create users; tokens -> mint per-user API tokens.
+            "scopes": ["admin:users", "tokens", "read:users", "admin:servers"],
+        }
+    ]
 
 # ---------------------------------------------------------------------------
 # ── PRODUCTION (TLJH) SystemdSpawner block ──────────────────────────────────

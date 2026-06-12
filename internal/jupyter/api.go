@@ -105,6 +105,13 @@ func (s *Service) handleConnection(ctx context.Context, _ *jupyterConnectionInpu
 		return nil, platform.Errorf(http.StatusBadGateway, "jupyter.hub_error", "failed to obtain JupyterHub token: "+err.Error())
 	}
 
+	// Best-effort: start the user's single-user server so the link works
+	// immediately. A failure here doesn't block returning the link — the user
+	// can also launch it via "Open in browser".
+	if err := s.ensureServer(ctx, username); err != nil {
+		s.log.Warn("jupyter: could not ensure single-user server", "username", username, "err", err)
+	}
+
 	hubURL := strings.TrimRight(s.cfg.JupyterHubURL, "/")
 	serverURL := hubURL + "/user/" + username + "/"
 	vsCodeURI := serverURL + "?token=" + token

@@ -42,6 +42,9 @@ services:
       - "127.0.0.1:8000:8000"
     environment:
       JUPYTERHUB_DEV: "1"
+      # Admin service token for the Go API's "Generate connection link" (VS Code)
+      # flow. Must match JUPYTERHUB_ADMIN_TOKEN set on the API server.
+      JUPYTERHUB_API_ADMIN_TOKEN: "${JUPYTERHUB_API_TOKEN:-a1b2c3d4e5f6071829304152637485960a1b2c3d4e5f06182930415263748596}"
       LABDATA_API_URL: "http://host.docker.internal:8080"
       LABDATA_ROOT: "/srv/labdata"
       LABDATA_READONLY_URL: "postgresql://labdata_nb:${NB_PASSWORD:-changeme}@host.docker.internal:5432/labdata?sslmode=disable"

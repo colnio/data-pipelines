@@ -90,9 +90,39 @@ type hubTokenResponse struct {
 	Token string `json:"token"`
 }
 
-// mintToken mints a per-user JupyterHub API token via the Hub admin API.
-// Returns the raw token string.
+// ensureUser idempotently creates the Hub user so a token can be minted even
+// before the user's first browser login to JupyterHub. 201 (created), 409
+// (already exists) and any other 2xx all count as success.
+func (s *Service) ensureUser(ctx context.Context, username string) error {
+	hubURL := strings.TrimRight(s.cfg.JupyterHubURL, "/")
+	endpoint := fmt.Sprintf("%s/hub/api/users/%s", hubURL, username)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("jupyter: build create-user request: %w", err)
+	}
+	req.Header.Set("Authorization", "token "+s.cfg.JupyterHubAdminToken)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("jupyter: create-user request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode == http.StatusConflict || (resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		return nil
+	}
+	return fmt.Errorf("hub create-user HTTP %d: %s", resp.StatusCode, string(b))
+}
+
+// mintToken mints a per-user JupyterHub API token via the Hub admin API. It
+// first ensures the user exists, then creates a short-lived token. Returns the
+// raw token string.
 func (s *Service) mintToken(ctx context.Context, username string) (string, error) {
+	if err := s.ensureUser(ctx, username); err != nil {
+		return "", err
+	}
+
 	hubURL := strings.TrimRight(s.cfg.JupyterHubURL, "/")
 	endpoint := fmt.Sprintf("%s/hub/api/users/%s/tokens", hubURL, username)
 
@@ -131,4 +161,70 @@ func (s *Service) mintToken(ctx context.Context, username string) (string, error
 		return "", fmt.Errorf("jupyter: hub returned empty token")
 	}
 	return tr.Token, nil
+}
+
+// ensureServer starts the user's single-user server (if not already running) so
+// the generated connection link is immediately usable by an IDE — otherwise the
+// IDE hits /user/<name>/api/... with no server behind it. It POSTs the Hub
+// server-spawn endpoint (idempotent: 201 started, 202 pending, 400 already
+// running) then waits, bounded, for the server to report ready. It is
+// best-effort: a slow spawn is not treated as fatal, since the server usually
+// finishes coming up moments later and the user can also launch it in-browser.
+func (s *Service) ensureServer(ctx context.Context, username string) error {
+	hubURL := strings.TrimRight(s.cfg.JupyterHubURL, "/")
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, hubURL+"/hub/api/users/"+username+"/server", nil)
+	if err != nil {
+		return fmt.Errorf("jupyter: build spawn request: %w", err)
+	}
+	req.Header.Set("Authorization", "token "+s.cfg.JupyterHubAdminToken)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("jupyter: spawn request failed: %w", err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	// 400 == already running (or pending); treat as success.
+	if !(resp.StatusCode == http.StatusBadRequest || (resp.StatusCode >= 200 && resp.StatusCode < 300)) {
+		return fmt.Errorf("hub spawn HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	// Poll readiness for a bounded time; a timeout is non-fatal.
+	waitCtx, cancel := context.WithTimeout(ctx, 25*time.Second)
+	defer cancel()
+	for {
+		if s.serverReady(waitCtx, hubURL, username) {
+			return nil
+		}
+		select {
+		case <-waitCtx.Done():
+			return nil
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+// serverReady reports whether the user's default single-user server is ready.
+func (s *Service) serverReady(ctx context.Context, hubURL, username string) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hubURL+"/hub/api/users/"+username, nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Authorization", "token "+s.cfg.JupyterHubAdminToken)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var u struct {
+		Servers map[string]struct {
+			Ready bool `json:"ready"`
+		} `json:"servers"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&u); err != nil {
+		return false
+	}
+	srv, ok := u.Servers[""]
+	return ok && srv.Ready
 }
