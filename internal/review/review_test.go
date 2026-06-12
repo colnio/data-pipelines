@@ -518,3 +518,67 @@ func TestHandlers_Unauthenticated(t *testing.T) {
 		})
 	}
 }
+
+// ── Regression (found via UI E2E): publish must be re-entrant and tolerate a
+// missing manifest, rather than deadlocking the run in 'publishing'. ──────────
+
+// TestHandlePublish_ResumesFromPublishing covers the case where a prior publish
+// attempt already moved the run to 'publishing' but failed mid-receipt. A retry
+// must RESUME (not re-require 'approved') and finish publishing.
+func TestHandlePublish_ResumesFromPublishing(t *testing.T) {
+	pool := testsupport.NewPool(t)
+	ctx := context.Background()
+	truncateAll(t, pool)
+
+	runID := seedRun(t, pool, ctx)
+
+	// Simulate a stuck prior attempt: an approve decision exists and the run is
+	// already in 'publishing' (seed-bypass UPDATE, as seedRun does for state).
+	_, err := pool.Exec(ctx,
+		`INSERT INTO review_decisions (run_id, decision, reviewer, reason) VALUES ($1,'approve','reviewer@lab.example','ok')`, runID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE runs SET state='publishing' WHERE id=$1`, runID)
+	require.NoError(t, err)
+
+	svc := review.NewService(pool, run.NewRepo(pool), jobs.NewQueue(pool), discardLogger())
+	handler := svc.Handlers()[domain.JobPublishRun]
+
+	_, err = handler(ctx, domain.Job{ID: 1, JobType: domain.JobPublishRun, RunID: &runID})
+	require.NoError(t, err, "publish must resume from 'publishing', not deadlock")
+
+	state, err := statemachine.CurrentState(ctx, pool, runID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StatePublished, state)
+
+	var cnt int
+	require.NoError(t, pool.QueryRow(ctx, `SELECT count(*) FROM published_results WHERE run_id=$1`, runID).Scan(&cnt))
+	assert.Equal(t, 1, cnt, "resume must produce exactly one receipt")
+}
+
+// TestHandlePublish_ToleratesMissingManifest covers a run with no manifest row:
+// publish must still complete (empty parameter_version_ids) rather than failing.
+func TestHandlePublish_ToleratesMissingManifest(t *testing.T) {
+	pool := testsupport.NewPool(t)
+	ctx := context.Background()
+	truncateAll(t, pool)
+
+	runID := seedRun(t, pool, ctx)
+	_, err := pool.Exec(ctx, `DELETE FROM manifests WHERE run_id=$1`, runID)
+	require.NoError(t, err)
+	_, err = pool.Exec(ctx, `UPDATE runs SET state='approved' WHERE id=$1`, runID)
+	require.NoError(t, err)
+
+	svc := review.NewService(pool, run.NewRepo(pool), jobs.NewQueue(pool), discardLogger())
+	handler := svc.Handlers()[domain.JobPublishRun]
+
+	_, err = handler(ctx, domain.Job{ID: 1, JobType: domain.JobPublishRun, RunID: &runID})
+	require.NoError(t, err, "publish must tolerate a missing manifest")
+
+	state, err := statemachine.CurrentState(ctx, pool, runID)
+	require.NoError(t, err)
+	assert.Equal(t, domain.StatePublished, state)
+
+	var paramVers string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT parameter_version_ids_json::text FROM published_results WHERE run_id=$1`, runID).Scan(&paramVers))
+	assert.Equal(t, "{}", paramVers, "missing manifest yields empty param versions")
+}

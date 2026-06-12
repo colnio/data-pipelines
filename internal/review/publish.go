@@ -52,17 +52,26 @@ func (s *Service) handlePublish(ctx context.Context, job domain.Job) (json.RawMe
 		return r, nil
 	}
 
-	// Transition approved→publishing.
-	_, err = statemachine.Transition(ctx, s.pool, statemachine.TransitionParams{
-		RunID:        runID,
-		ExpectedFrom: domain.StateApproved,
-		To:           domain.StatePublishing,
-		ActorType:    domain.ActorWorker,
-		ActorID:      "publish-worker",
-		Reason:       "starting Pipeline B publish",
-	})
-	if err != nil {
-		return nil, mapSMErr(err)
+	// Re-entrant: a retried job whose prior attempt already moved the run to
+	// 'publishing' (e.g. it failed mid-receipt) must RESUME, not re-require
+	// 'approved' — otherwise it deadlocks in 'publishing' forever. Only perform
+	// the approved→publishing transition when still 'approved'.
+	switch current {
+	case domain.StateApproved:
+		if _, err = statemachine.Transition(ctx, s.pool, statemachine.TransitionParams{
+			RunID:        runID,
+			ExpectedFrom: domain.StateApproved,
+			To:           domain.StatePublishing,
+			ActorType:    domain.ActorWorker,
+			ActorID:      "publish-worker",
+			Reason:       "starting Pipeline B publish",
+		}); err != nil {
+			return nil, mapSMErr(err)
+		}
+	case domain.StatePublishing:
+		// resume — receipt build below is idempotent
+	default:
+		return nil, fmt.Errorf("publish: run %s in state %q, expected approved/publishing/published", runID, current)
 	}
 
 	publishedID, err := s.buildAndInsertReceipt(ctx, runID)
@@ -95,6 +104,17 @@ func (s *Service) buildAndInsertReceipt(ctx context.Context, runID string) (stri
 		return "", fmt.Errorf("begin tx: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Idempotent resume: if a published_results row already exists for this run
+	// (a prior attempt got past the insert), reuse it instead of duplicating.
+	var existingID string
+	if err := tx.QueryRow(ctx,
+		`SELECT id FROM published_results WHERE run_id = $1 ORDER BY published_at DESC LIMIT 1`,
+		runID).Scan(&existingID); err == nil {
+		return existingID, nil
+	} else if err != pgx.ErrNoRows {
+		return "", fmt.Errorf("check existing published_results: %w", err)
+	}
 
 	// ── Load the run ──────────────────────────────────────────────────────────
 	var manifestHash string
@@ -129,20 +149,26 @@ func (s *Service) buildAndInsertReceipt(ctx context.Context, runID string) (stri
 		return "", err
 	}
 
-	// ── parameter_version_ids_json: from the stored manifest ─────────────────
+	// ── parameter_version_ids_json: from the stored manifest (if present) ────
+	// A missing manifest must not block publishing — record empty param versions
+	// rather than deadlocking the run in 'publishing'.
+	paramVerJSON := []byte(`{}`)
 	var manifestRaw []byte
-	if err := tx.QueryRow(ctx,
+	switch err := tx.QueryRow(ctx,
 		`SELECT raw_json FROM manifests WHERE run_id = $1 ORDER BY created_at DESC, id DESC LIMIT 1`,
-		runID).Scan(&manifestRaw); err != nil {
+		runID).Scan(&manifestRaw); err {
+	case nil:
+		var m domain.Manifest
+		if err := json.Unmarshal(manifestRaw, &m); err != nil {
+			return "", fmt.Errorf("decode manifest: %w", err)
+		}
+		if pv, mErr := json.Marshal(m.ParamVersions); mErr == nil && pv != nil {
+			paramVerJSON = pv
+		}
+	case pgx.ErrNoRows:
+		// leave paramVerJSON = {}
+	default:
 		return "", fmt.Errorf("load manifest: %w", err)
-	}
-	var m domain.Manifest
-	if err := json.Unmarshal(manifestRaw, &m); err != nil {
-		return "", fmt.Errorf("decode manifest: %w", err)
-	}
-	paramVerJSON, err := json.Marshal(m.ParamVersions)
-	if err != nil {
-		return "", err
 	}
 
 	// ── parser_version: from the latest parser_results row ───────────────────
